@@ -75,7 +75,7 @@ final class PlacePageScrollView: UIScrollView {
     actionBarContainerView.layer.masksToBounds = true
     actionBarContainerView.layer.maskedCorners = [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]
 
-    if previousTraitCollection == nil {
+    if #available(iOS 13.0, *), previousTraitCollection == nil {
       scrollView.contentInset = alternativeSizeClass(iPhone: UIEdgeInsets(top: view.height, left: 0, bottom: 0, right: 0),
                                                      iPad: UIEdgeInsets.zero)
       scrollView.layoutIfNeeded()
@@ -84,6 +84,11 @@ final class PlacePageScrollView: UIScrollView {
 
   override func viewDidLayoutSubviews() {
     super.viewDidLayoutSubviews()
+    if #unavailable(iOS 13.0), previousTraitCollection == nil {
+      scrollView.contentInset = alternativeSizeClass(iPhone: UIEdgeInsets(top: scrollView.height, left: 0, bottom: 0, right: 0),
+                                                     iPad: UIEdgeInsets.zero)
+      updateSteps()
+    }
     panGesture.isEnabled = alternativeSizeClass(iPhone: false, iPad: true)
     previousTraitCollection = traitCollection
   }
