@@ -187,7 +187,7 @@ public:
     : m_anchor(anchor)
   {}
 
-  float operator()(float currentLength, float maxLength)
+  float operator()(float currentLength, float maxLength) const
   {
     ASSERT_GREATER_OR_EQUAL(maxLength, currentLength, ());
 
@@ -271,7 +271,7 @@ void CalculateOffsets(dp::Anchor anchor, float textRatio,
 
   ASSERT_EQUAL(delimIndexes.size(), lengthAndHeight.size(), ());
 
-  XLayouter xL(anchor);
+  XLayouter const xL(anchor);
   YLayouter yL(anchor, summaryHeight);
   for (size_t index = 0; index < delimIndexes.size(); ++index)
   {
