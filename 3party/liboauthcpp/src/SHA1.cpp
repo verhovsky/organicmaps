@@ -281,3 +281,9 @@ void CSHA1::GetHash(UINT_8 *puDest)
 {
 	memcpy(puDest, m_digest, 20);
 }
+
+#undef _R0
+#undef _R1
+#undef _R2
+#undef _R3
+#undef _R4
