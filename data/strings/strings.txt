@@ -6440,7 +6440,7 @@
     ca = Notícies
     cs = Novinky
     da = Nyheder
-    de = Neuigkeiten
+    de = News
     el = Νέα
     es = Noticias
     et = Uudised
@@ -12252,7 +12252,7 @@
     ca = Descriviu el problema detalladament perquè la comunitat d'OpenStreetMap pugui corregir l'error.
     cs = Popište prosím detailně problém, aby vám komunita OpenStreetMap mohla pomoct opravit chybu.
     da = Beskriv problemet i detaljer, så OpenStreetMap-fællesskabet kan løse fejlen.
-    de = Bitte beschreiben Sie das Problem detailliert, damit die OpenStreetMap-COmmunity den Fehler korrigieren kann.
+    de = Bitte beschreiben Sie das Problem detailliert, damit die OpenStreetMap-Community den Fehler korrigieren kann.
     el = Περιγράψτε το πρόβλημα αναλυτικά ώστε η Κοινότητα OpenStreetMap να διορθώσει το σφάλμα.
     es = Por favor, describa el problema en detalle para que la comunidad de OpenStreetMap pueda corregir el error.
     et = Palun kirjelda probleemi üksikasjalikult, et OpenStreetMap kommuun saaks selle parandada.
@@ -13330,7 +13330,7 @@
     ca = Inicia sessió
     cs = Přihlásit se
     da = Log ind
-    de = Anmelden bei OpenStreetMap
+    de = Bei OpenStreetMap anmelden
     el = Σύνδεση
     es = Iniciar sesión
     et = Logi sisse
@@ -14780,7 +14780,7 @@
     ca = Error en iniciar sessió.
     cs = Chyba při přihlašování.
     da = Login-fejl.
-    de = Anmeldungsfehler.
+    de = Login-Fehler.
     el = Σφάλμα σύνδεσης.
     es = Error de inicio de sesión.
     et = Sisse logimise viga.
@@ -15520,7 +15520,7 @@
     ca = Inicieu sessió perquè altres usuaris puguin veure els canvis que heu fet
     cs = Přihlaste se, aby ostatní uživatelé mohli vidět změny, které jste provedli.
     da = Log på så andre brugere kan se ændringerne som du har foretaget.
-    de = Melden Sie sich bei openstreetmap.org an, um Ihre Änderungen die Welt zu veröffentlichen.
+    de = Melden Sie sich bei openstreetmap.org an, um Ihre Änderungen weltweit zu veröffentlichen.
     el = Συνδεθείτε ώστε άλλοι χρήστες να μπορούν να δουν τις αλλαγές που έχετε κάνει
     es = Inicie sesión en OpenStreetMap.org para que otros usuarios puedan ver los cambios que haya efectuado.
     et = Logi sisse OpenStreetMap.org keskkonda, et teised kasutajad näeksid Sinu tehtud muudatusi.
@@ -16046,7 +16046,7 @@
     ca = Envia una ota als editors d'OSM
     cs = Odeslat poznámku editorům OSM
     da = Send en besked til OSM-redaktører
-    de = Notiz an OSM-Beitragender senden
+    de = Notiz an Freiwillige von OpenStreetMap senden
     el = Σημείωμα στους συντάκτες του OSM
     es = Enviar nota a los editores de OSM
     es-MX = Enviar nota a los editores de OSM
@@ -16397,7 +16397,7 @@
     ca = Es desconeix la ubicació actual.
     cs = Současná poloha nezjištěna.
     da = Aktuel position er ukendt.
-    de = Aktueller Standort ist unbekannt
+    de = Aktueller Standort unbekannt
     el = Η τρέχουσα τοποθεσία είναι άγνωστη.
     es = La ubicación actual es desconocida.
     et = Hetkeasukoht on teadmata.
@@ -17347,7 +17347,7 @@
     ca = La bonificació de referència rebuda per cada reserva a través d'aquest enllaç es destina al desenvolupament de Organic Maps.
     cs = Bonus za každou rezervaci provedenou prostřednictvím tohoto odkazu je určen na rozvoj služby Organic Maps.
     da = Henvisningsbonussen, der modtages for hver booking via dette link, går til udviklingen af Organic Maps.
-    de = Der Empfehlungsbonus, den wir für jede buchung über diesen link erhalten, geht in die entwicklung von Organic Maps.
+    de = Der Empfehlungsbonus, den wir für jede Buchung über diesen Link erhalten, fließt in die Entwicklung von Organic Maps.
     el = Το μπόνους παραπομπής που λαμβάνετε για κάθε κράτηση μέσω αυτού του συνδέσμου πηγαίνει στην ανάπτυξη του Organic Maps.
     es = La bonificación por recomendación recibida por cada reserva a través de este enlace se destina al desarrollo de Organic Maps.
     es-MX = El bono de recomendación recibido por cada reserva a través de este enlace se destina al desarrollo de Organic Maps.
@@ -18470,7 +18470,7 @@
     ca = Revisarem els canvis. Si tenim cap pregunta contactem amb vós via correu electrònic.
     cs = Redaktoři OpenStreetMap zkontrolují změny a budou vás kontaktovat, pokud budou mít nějaké dotazy.
     da = OpenStreetMap-redaktører vil tjekke ændringerne og kontakte dig, hvis de har spørgsmål.
-    de = OpenStreetMap-Beitragender werden die Änderungen prüfen und sich bei Fragen mit Ihnen in Verbindung setzen.
+    de = Freiwillige von OpenStreetMap werden die Änderungen prüfen und sich bei Fragen mit Ihnen in Verbindung setzen.
     el = Οι συντάκτες του OpenStreetMap θα ελέγξουν τις αλλαγές και θα επικοινωνήσουν μαζί σας εάν έχουν απορίες.
     es = Los editores de OpenStreetMap comprobarán los cambios y se pondrán en contacto con usted si tienen alguna pregunta.
     et = OpenStreetMap muutjad kontrollivad muudatused üle ja võtavad küsimuste korral Sinuga ühendust.
@@ -20963,7 +20963,7 @@
     ca = Error al compartir
     cs = Chyba sdílení
     da = Delingsfejl
-    de = Fehler bei der Teilung
+    de = Fehler beim Teilen
     el = Σφάλμα κοινής χρήσης
     es = Error al compartir
     es-MX = Error al compartir
@@ -24030,7 +24030,7 @@
     ca = Definiu les vies a evitar
     cs = Definovat silnice, kterým se vyhnout
     da = Definer veje du vil undgå
-    de = Definieren Sie zu vermeidende Straßen
+    de = Routenbeschränkung einstellen
     el = Ρύθμιση της διαδρομής παράκαμψης
     es = Defina las carreteras a evitar
     es-MX = Configurar rutas de desvío
