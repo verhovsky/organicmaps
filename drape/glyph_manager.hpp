@@ -42,7 +42,7 @@ public:
   void MarkGlyphReady(Glyph const & glyph);
   bool AreGlyphsReady(strings::UniString const & str, int fixedSize) const;
 
-  Glyph GetInvalidGlyph(int fixedSize) const;
+  Glyph const & GetInvalidGlyph(int fixedSize) const;
 
   uint32_t GetBaseGlyphHeight() const;
   uint32_t GetSdfScale() const;

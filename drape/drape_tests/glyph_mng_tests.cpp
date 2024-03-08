@@ -148,7 +148,7 @@ public:
       FT_GlyphSlot slot = face->glyph;
 //      FT_Render_Glyph(slot, FT_RENDER_MODE_NORMAL);
 
-      FT_Bitmap const ftBitmap = slot->bitmap;
+      FT_Bitmap const & ftBitmap = slot->bitmap;
 
       auto buffer = ftBitmap.buffer;
       auto width = ftBitmap.width;

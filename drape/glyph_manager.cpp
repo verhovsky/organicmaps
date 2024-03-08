@@ -11,7 +11,6 @@
 #include "base/math.hpp"
 
 #include <limits>
-#include <set>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -302,12 +301,12 @@ GlyphManager::GlyphManager(Params const & params)
 
 
   // tmp
-  std::ifstream names("/Users/alex/Developer/omim/rust-extract/sorted_unique.txt");
-  std::string line;
-  while (names.good()) {
-    std::getline(names, line);
-    
-  }
+  // std::ifstream names("/Users/alex/Developer/omim/rust-extract/sorted_unique.txt");
+  // std::string line;
+  // while (names.good()) {
+  //   std::getline(names, line);
+  //
+  // }
 }
 
 uint32_t GlyphManager::GetBaseGlyphHeight() const
@@ -455,7 +454,7 @@ bool GlyphManager::AreGlyphsReady(strings::UniString const & str, int fixedSize)
   return true;
 }
 
-Glyph GlyphManager::GetInvalidGlyph(int fixedSize) const
+Glyph const & GlyphManager::GetInvalidGlyph(int fixedSize) const
 {
   strings::UniChar constexpr kInvalidGlyphCode = 0x9;
   int constexpr kFontId = 0;
