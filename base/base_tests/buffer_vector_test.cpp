@@ -428,7 +428,7 @@ UNIT_TEST(BufferVector_ReturnFromAFunction)
   for (int i = 0; i < 100; ++i)
   {
     auto const v = TestVecReturn(i);
-    TEST_EQUAL(v.size(), i, ());
+    TEST_EQUAL(v.size(), static_cast<size_t>(i), ());
     for (int j = 0; j < i; ++j)
       TEST_EQUAL(v[j], j, ());
     }
