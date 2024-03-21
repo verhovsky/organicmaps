@@ -1,8 +1,8 @@
 private let kUDCloudIdentityKey = "com.apple.organicmaps.UbiquityIdentityToken"
 
 protocol CloudDirectoryMonitorDelegate : AnyObject {
-  func didFinishGathering(directoryMonitor: AnyObject, content: Set<CloudMetadataItem>)
-  func didUpdate(directoryMonitor: AnyObject, content: Set<CloudMetadataItem>, added: Set<CloudMetadataItem>, updated: Set<CloudMetadataItem>, removed: Set<CloudMetadataItem>)
+  func didFinishGathering(contents: CloudContents)
+  func didUpdate(contents: CloudContents)
 }
 
 final class CloudDirectoryMonitor: NSObject {
@@ -15,12 +15,13 @@ final class CloudDirectoryMonitor: NSObject {
     return identifier
   }()
 
-  static let shared = CloudDirectoryMonitor(cloudContainerIdentifier: CloudDirectoryMonitor.sharedContainerIdentifier)
+  static let `default` = CloudDirectoryMonitor(cloudContainerIdentifier: CloudDirectoryMonitor.sharedContainerIdentifier)
 
   private let metadataQuery = NSMetadataQuery()
-  private let backgroundQueue = DispatchQueue(label: "iCloud.app.organicmaps.backgroundQueue", qos: .background)
-  private var ubiquitousDocumentsDirectoryUrl: URL?
   private var containerIdentifier: String
+  private var ubiquitousDocumentsDirectory: URL?
+//  private(set) var contents = CloudContents()
+
   weak var delegate: CloudDirectoryMonitorDelegate?
 
   init(cloudContainerIdentifier: String = CloudDirectoryMonitor.sharedContainerIdentifier) {
@@ -29,7 +30,7 @@ final class CloudDirectoryMonitor: NSObject {
 
     setupMetadataQuery()
     subscribeToCloudAvailabilityNotifications()
-    fetchUbiquityDocumentsDirectoryUrl()
+    fetchUbiquityDirectoryUrl()
   }
 
   // MARK: - Public
@@ -40,7 +41,7 @@ final class CloudDirectoryMonitor: NSObject {
       completion?(.failure(CloudSynchronizationError.iCloudIsNotAvailable))
       return
     }
-    fetchUbiquityDocumentsDirectoryUrl { [weak self] result in
+    fetchUbiquityDirectoryUrl { [weak self] result in
       guard let self else { return }
       switch result {
       case .success:
@@ -84,9 +85,9 @@ final class CloudDirectoryMonitor: NSObject {
   }
 
   // MARK: - Private
-  func fetchUbiquityDocumentsDirectoryUrl(completion: ((Result<URL, CloudSynchronizationError>) -> Void)? = nil) {
-    if let ubiquitousDocumentsDirectoryUrl {
-      completion?(.success(ubiquitousDocumentsDirectoryUrl))
+  func fetchUbiquityDirectoryUrl(completion: ((Result<URL, CloudSynchronizationError>) -> Void)? = nil) {
+    if let ubiquitousDocumentsDirectory {
+      completion?(.success(ubiquitousDocumentsDirectory))
       return
     }
     DispatchQueue.global().async {
@@ -96,7 +97,7 @@ final class CloudDirectoryMonitor: NSObject {
         return
       }
       let documentsContainerUrl = containerUrl.appendingPathComponent(kDocumentsDirectoryName)
-      self.ubiquitousDocumentsDirectoryUrl = documentsContainerUrl
+      self.ubiquitousDocumentsDirectory = documentsContainerUrl
       completion?(.success(documentsContainerUrl))
     }
   }
@@ -138,10 +139,10 @@ final class CloudDirectoryMonitor: NSObject {
 
     metadataQuery.disableUpdates()
     let results = metadataQuery.results.compactMap { $0 as? NSMetadataItem }
-    let newContent = Set(results.map { CloudMetadataItem(metadataItem: $0) })
-    
-    delegate?.didFinishGathering(directoryMonitor: self, content: newContent)
+    let newContent = CloudContents(results.map { CloudMetadataItem(metadataItem: $0) })
     metadataQuery.enableUpdates()
+
+    delegate?.didFinishGathering(contents: newContent)
   }
 
   @objc private func queryDidUpdate(_ notification: Notification) {
@@ -152,28 +153,9 @@ final class CloudDirectoryMonitor: NSObject {
 
     metadataQuery.disableUpdates()
     let results = metadataQuery.results.compactMap { $0 as? NSMetadataItem }
-    let newContent = Set(results.map { CloudMetadataItem(metadataItem: $0) })
-
-    let addedMetadataItems = changes[NSMetadataQueryUpdateAddedItemsKey] as? [NSMetadataItem] ?? []
-    let updatedMetadataItems = changes[NSMetadataQueryUpdateChangedItemsKey] as? [NSMetadataItem] ?? []
-    let removedMetadataItems = changes[NSMetadataQueryUpdateRemovedItemsKey] as? [NSMetadataItem] ?? []
-
-    let addedContent = Set(addedMetadataItems.map { CloudMetadataItem(metadataItem: $0) })
-    let updatedContent = Set(updatedMetadataItems.map { CloudMetadataItem(metadataItem: $0) })
-    let removedContent = Set(removedMetadataItems.map { CloudMetadataItem(metadataItem: $0) })
-
-    delegate?.didUpdate(directoryMonitor: self, content: newContent, added: addedContent, updated: updatedContent, removed: removedContent)
+    let newContent = CloudContents(results.map { CloudMetadataItem(metadataItem: $0) })
     metadataQuery.enableUpdates()
-  }
-}
 
-// MARK: - Set + Subtracting for the LocalMetadataItem
-extension Set where Element: MetadataItem {
-  func containsItem(_ item: any MetadataItem) -> Bool {
-    return self.contains(where: { $0.fileName == item.fileName })
-  }
-
-  func itemWithName(_ name: String) -> (any MetadataItem)? {
-    return self.first(where: { $0.fileName == name })
+    delegate?.didUpdate(contents: newContent)
   }
 }

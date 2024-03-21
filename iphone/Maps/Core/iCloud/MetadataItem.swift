@@ -18,14 +18,14 @@ struct CloudMetadataItem: MetadataItem {
   let fileUrl: URL
   let fileSize: Int?
   let contentType: String
-  let isDownloaded: Bool
+  var isDownloaded: Bool
   let downloadAmount: Double?
-  let isUploading: Bool
-  let isUploaded: Bool
   let creationDate: Date
   let lastModificationDate: Date
   let isInTrash: Bool
+}
 
+extension CloudMetadataItem {
   // TODO: remove force unwraps
   init(metadataItem: NSMetadataItem) {
     fileName = metadataItem.value(forAttribute: NSMetadataItemFSNameKey) as! String
@@ -35,9 +35,6 @@ struct CloudMetadataItem: MetadataItem {
     downloadAmount = metadataItem.value(forAttribute: NSMetadataUbiquitousItemPercentDownloadedKey) as? Double
     let downloadStatus = metadataItem.value(forAttribute: NSMetadataUbiquitousItemDownloadingStatusKey) as? String
     isDownloaded = downloadStatus == NSMetadataUbiquitousItemDownloadingStatusCurrent
-    let uploaded = metadataItem.value(forAttribute: NSMetadataUbiquitousItemIsUploadedKey) as? Bool ?? false
-    isUploading = metadataItem.value(forAttribute: NSMetadataUbiquitousItemIsUploadingKey) as? Bool ?? true
-    isUploaded = uploaded && !isUploading
     creationDate = metadataItem.value(forAttribute: NSMetadataItemFSCreationDateKey) as! Date
     lastModificationDate = metadataItem.value(forAttribute: NSMetadataItemFSContentChangeDateKey) as! Date
     isInTrash = fileUrl.pathComponents.contains(kTrashDirectoryName)
@@ -51,7 +48,9 @@ struct LocalMetadataItem: MetadataItem {
   let contentType: String
   let creationDate: Date
   let lastModificationDate: Date
+}
 
+extension LocalMetadataItem {
   // TODO: remove force unwraps
   init(metadataItem: NSMetadataItem) {
     fileName = metadataItem.value(forAttribute: NSMetadataItemFSNameKey) as! String

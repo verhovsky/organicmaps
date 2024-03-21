@@ -125,7 +125,7 @@ using namespace osm_auth_ios;
   }
   [self enableTTSForTheFirstTime];
 
-  [[iCloudStorageManger shared] start];
+  [[CloudStorageManger shared] start];
   [[DeepLinkHandler shared] applicationDidFinishLaunching:launchOptions];
   // application:openUrl:options is called later for deep links if YES is returned.
   return YES;

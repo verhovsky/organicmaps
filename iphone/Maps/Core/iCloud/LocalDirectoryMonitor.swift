@@ -1,28 +1,11 @@
 protocol LocalDirectoryMonitorDelegate : AnyObject {
-  func didFinishGathering(directoryMonitor: AnyObject, content: Set<LocalMetadataItem>)
-  func didUpdate(directoryMonitor: AnyObject, content: Set<LocalMetadataItem>, added: Set<LocalMetadataItem>, updated: Set<LocalMetadataItem>, removed: Set<LocalMetadataItem>)
+  func didFinishGathering(contents: LocalContents)
+  func didUpdate(contents: LocalContents)
 }
 
 final class LocalDirectoryMonitor {
 
   typealias Delegate = LocalDirectoryMonitorDelegate
-
-  init(directory: URL, matching typeIdentifier: String, requestedResourceKeys: Set<URLResourceKey>) {
-    self.directory = directory
-    self.typeIdentifier = typeIdentifier
-    self.requestedResourceKeys = requestedResourceKeys
-    self.actualResourceKeys = [URLResourceKey](requestedResourceKeys.union([.typeIdentifierKey]))
-    self.contentMetadataItems = []
-  }
-
-  private let typeIdentifier: String
-  private let requestedResourceKeys: Set<URLResourceKey>
-  private let actualResourceKeys: [URLResourceKey]
-  private let directory: URL
-
-  weak var delegate: Delegate?
-
-  private(set) var contentMetadataItems: Set<LocalMetadataItem>
 
   fileprivate enum State {
     case stopped
@@ -30,8 +13,26 @@ final class LocalDirectoryMonitor {
     case debounce(dirSource: DispatchSourceFileSystemObject, timer: Timer)
   }
 
+  static let `default` = LocalDirectoryMonitor(directory: FileManager.default.bookmarksDirectoryUrl,
+                                            matching: kKMLTypeIdentifier,
+                                            requestedResourceKeys: [.nameKey])
+
+  private let typeIdentifier: String
+  private let requestedResourceKeys: Set<URLResourceKey>
+  private let actualResourceKeys: [URLResourceKey]
   private var source: DispatchSourceFileSystemObject?
   private var state: State = .stopped
+  private(set) var contents = LocalContents()
+  let directory: URL
+
+  weak var delegate: Delegate?
+
+  init(directory: URL, matching typeIdentifier: String, requestedResourceKeys: Set<URLResourceKey>) {
+    self.directory = directory
+    self.typeIdentifier = typeIdentifier
+    self.requestedResourceKeys = requestedResourceKeys
+    self.actualResourceKeys = [URLResourceKey](requestedResourceKeys.union([.typeIdentifierKey]))
+  }
 
   // MARK: - Public
   func start() throws {
@@ -60,7 +61,7 @@ final class LocalDirectoryMonitor {
   func stop() {
     source?.suspend()
     state = .stopped
-    contentMetadataItems.removeAll()
+    contents.removeAll()
   }
 
   // MARK: - Private
@@ -119,21 +120,15 @@ final class LocalDirectoryMonitor {
     state = .started(dirSource: dirSource)
 
     let newContents = LocalDirectoryMonitor.contents(of: directory, matching: typeIdentifier, including: actualResourceKeys)
+    let newContentMetadataItems = LocalContents(newContents.map { LocalMetadataItem(fileUrl: $0) })
 
-    let newContentMetadataItems = Set(newContents.map({ LocalMetadataItem(fileUrl: $0) }))
     // When the contentMetadataItems is empty, it means that we are in the initial state.
-    if contentMetadataItems.isEmpty {
-      contentMetadataItems = newContentMetadataItems
-      delegate?.didFinishGathering(directoryMonitor: self, content:newContentMetadataItems)
-      return
+    if contents.isEmpty {
+      delegate?.didFinishGathering(contents: newContentMetadataItems)
+    } else {
+      delegate?.didUpdate(contents: newContentMetadataItems)
     }
-
-    let itemsAdded = newContentMetadataItems.subtracting(contentMetadataItems)
-    let itemsRemoved = contentMetadataItems.subtracting(newContentMetadataItems)
-    let itemsUpdated = newContentMetadataItems.subtractingUpdated(contentMetadataItems)
-
-    contentMetadataItems = newContentMetadataItems
-    delegate?.didUpdate(directoryMonitor: self, content: newContentMetadataItems, added: itemsAdded, updated: itemsUpdated, removed: itemsRemoved)
+    contents = newContentMetadataItems
   }
 }
 
@@ -144,21 +139,5 @@ fileprivate extension LocalDirectoryMonitor.State {
     case .started:  return true
     case .debounce: return true
     }
-  }
-}
-
-// MARK: - Set + Subtracting for the LocalMetadataItem
-extension Set where Element: MetadataItem {
-  // fileName is used to compare the items, because it is always unique in the file system.
-  func subtracting(_ other: Set<Element>) -> Set<Element> {
-    return self.filter { !other.map({ $0.fileName}).contains($0.fileName) }
-  }
-
-  func subtractingUpdated(_ other: Set<Element>) -> Set<Element> {
-    let itemsUpdated: Set<Element> = Set(compactMap({ newItem in
-      guard let oldItem = other.first(where: { $0.fileName == newItem.fileName }) else { return .none }
-      return newItem.lastModificationDate > oldItem.lastModificationDate ? newItem : .none
-    }))
-    return itemsUpdated
   }
 }
