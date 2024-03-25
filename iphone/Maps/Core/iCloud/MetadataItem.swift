@@ -7,22 +7,16 @@ protocol MetadataItem: Equatable, Hashable {
   var lastModificationDate: Date { get }
 }
 
-extension MetadataItem {
-  var exists: Bool {
-    FileManager.default.fileExists(atPath: fileUrl.path)
-  }
-}
-
 struct CloudMetadataItem: MetadataItem {
   let fileName: String
   let fileUrl: URL
   let fileSize: Int?
   let contentType: String
   var isDownloaded: Bool
-  let downloadAmount: Double?
+  var downloadAmount: Double?
   let creationDate: Date
-  let lastModificationDate: Date
-  let isInTrash: Bool
+  var lastModificationDate: Date
+  var isInTrash: Bool
 }
 
 extension CloudMetadataItem {
@@ -71,12 +65,7 @@ extension LocalMetadataItem {
     lastModificationDate = try! fileUrl.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate!
   }
 
-  var fileData: Data {
-    if let data = try? Data(contentsOf: fileUrl) {
-      return data
-    } else {
-      // TODO: handle error
-      fatalError("Could not read file data")
-    }
+  func fileData() throws -> Data {
+    try Data(contentsOf: fileUrl)
   }
 }

@@ -154,17 +154,15 @@ private extension CloudStorageManger {
       LOG(.debug, "Process event: \(event)")
       self.backgroundQueue.async {
         switch event {
-        case .createLocalItem(let cloudMetadataItem): self.writeLocalItem(cloudMetadataItem, completion: self.resultCompletionHandler())
-        case .updateLocalItem(let cloudMetadataItem): self.writeLocalItem(cloudMetadataItem, completion: self.resultCompletionHandler())
-        case .removeLocalItem(let cloudMetadataItem): self.removeLocalItem(cloudMetadataItem, completion: self.resultCompletionHandler())
+        case .createLocalItem(let cloudMetadataItem): self.writeToTheLocalContainer(cloudMetadataItem, completion: self.resultCompletionHandler())
+        case .updateLocalItem(let cloudMetadataItem): self.writeToTheLocalContainer(cloudMetadataItem, completion: self.resultCompletionHandler())
+        case .removeLocalItem(let cloudMetadataItem): self.removeFromTheLocalContainer(cloudMetadataItem, completion: self.resultCompletionHandler())
         case .startDownloading(let cloudMetadataItem): self.startDownloading(cloudMetadataItem, completion: self.resultCompletionHandler())
-        case .createCloudItem(let localMetadataItem): self.writeCloudItem(localMetadataItem, completion: self.resultCompletionHandler())
-        case .updateCloudItem(let localMetadataItem): self.writeCloudItem(localMetadataItem, completion: self.resultCompletionHandler())
-        case .removeCloudItem(let localMetadataItem): self.removeCloudItem(localMetadataItem, completion: self.resultCompletionHandler())
+        case .createCloudItem(let localMetadataItem): self.writeToTheCloudContainer(localMetadataItem, completion: self.resultCompletionHandler())
+        case .updateCloudItem(let localMetadataItem): self.writeToTheCloudContainer(localMetadataItem, completion: self.resultCompletionHandler())
+        case .removeCloudItem(let localMetadataItem): self.removeFromTheCloudContainer(localMetadataItem, completion: self.resultCompletionHandler())
         case .stopSynchronization(let synchronizationStopReason): self.stopSynchronization()
-        case .resumeSynchronization:
-          // TODO: Handle resume sync
-          break
+        case .resumeSynchronization: self.startSynchronization()
         case .didReceiveError(let error):
           // TODO: Handle Errors
           break
@@ -191,8 +189,8 @@ private extension CloudStorageManger {
   }
 
   func startDownloading(_ cloudMetadataItem: CloudMetadataItem, completion: VoidResultCompletionHandler) {
-    LOG(.debug, "Start downloading file: \(cloudMetadataItem.fileName)...")
     do {
+      LOG(.debug, "Start downloading file: \(cloudMetadataItem.fileName)...")
       try FileManager.default.startDownloadingUbiquitousItem(at: cloudMetadataItem.fileUrl)
       completion(.success)
     } catch {
@@ -200,8 +198,7 @@ private extension CloudStorageManger {
     }
   }
 
-  func writeLocalItem(_ cloudMetadataItem: CloudMetadataItem, completion: VoidResultCompletionHandler) {
-    LOG(.debug, "")
+  func writeToTheLocalContainer(_ cloudMetadataItem: CloudMetadataItem, completion: VoidResultCompletionHandler) {
     var coordinationError: NSError?
     let targetLocalFileUrl = localDirectoryUrl.appendingPathComponent(cloudMetadataItem.fileName)
     LOG(.debug, "File \(cloudMetadataItem.fileName) is downloaded to the local iCloud container. Start coordinating and writing file...")
@@ -222,8 +219,7 @@ private extension CloudStorageManger {
     }
   }
 
-  func removeLocalItem(_ cloudMetadataItem: CloudMetadataItem, completion: VoidResultCompletionHandler) {
-    LOG(.debug, "")
+  func removeFromTheLocalContainer(_ cloudMetadataItem: CloudMetadataItem, completion: VoidResultCompletionHandler) {
     let targetLocalFileUrl = localDirectoryUrl.appendingPathComponent(cloudMetadataItem.fileName)
 
     guard FileManager.default.fileExists(atPath: targetLocalFileUrl.path) else {
@@ -233,7 +229,8 @@ private extension CloudStorageManger {
     }
 
     do {
-      try FileManager.default.removeItem(at: targetLocalFileUrl) // TODO: trash?
+      // TODO: trash?
+      try FileManager.default.removeItem(at: targetLocalFileUrl)
       needsToReloadBookmarksOnTheMap = true
       LOG(.debug, "File \(cloudMetadataItem.fileName) is removed from the local directory successfully.")
       completion(.success)
@@ -243,8 +240,7 @@ private extension CloudStorageManger {
     }
   }
 
-  func writeCloudItem(_ localMetadataItem: LocalMetadataItem, completion: @escaping VoidResultCompletionHandler) {
-    LOG(.debug, "")
+  func writeToTheCloudContainer(_ localMetadataItem: LocalMetadataItem, completion: @escaping VoidResultCompletionHandler) {
     cloudDirectoryMonitor.fetchUbiquityDirectoryUrl { [weak self] result in
       guard let self else { return }
       switch result {
@@ -252,12 +248,12 @@ private extension CloudStorageManger {
         completion(.failure(error))
       case .success(let cloudDirectoryUrl):
         let targetCloudFileUrl = cloudDirectoryUrl.appendingPathComponent(localMetadataItem.fileName)
-        let fileData = localMetadataItem.fileData
         var coordinationError: NSError?
 
         LOG(.debug, "Start coordinating and writing file \(localMetadataItem.fileName)...")
         fileCoordinator.coordinate(writingItemAt: targetCloudFileUrl, options: [], error: &coordinationError) { url in
           do {
+            let fileData = try localMetadataItem.fileData()
             try fileData.write(to: url, lastModificationDate: localMetadataItem.lastModificationDate)
             completion(.success)
           } catch {
@@ -272,7 +268,7 @@ private extension CloudStorageManger {
     }
   }
 
-  func removeCloudItem(_ localMetadataItem: LocalMetadataItem, completion: @escaping VoidResultCompletionHandler) {
+  func removeFromTheCloudContainer(_ localMetadataItem: LocalMetadataItem, completion: @escaping VoidResultCompletionHandler) {
     cloudDirectoryMonitor.fetchUbiquityDirectoryUrl { [weak self] result in
       guard let self else { return }
       switch result {
@@ -285,11 +281,7 @@ private extension CloudStorageManger {
 
         fileCoordinator.coordinate(writingItemAt: targetCloudFileUrl, options: [.forMoving], error: &coordinationError) { url in
           do {
-//             TODO: move to trash by our own
             try FileManager.default.trashItem(at: url, resultingItemURL: nil)
-//            let
-//            let trashFileUrl = cloudDirectoryUrl.appendingPathComponent(kTrashDirectoryName, isDirectory: true).appendingPathComponent(localMetadataItem.fileName)
-//            try FileManager.default.moveItem(at: url, to: trashFileUrl)
             completion(.success)
           } catch {
             completion(.failure(error))
@@ -303,16 +295,13 @@ private extension CloudStorageManger {
     }
   }
 
-  func trashCloudItem(_ cloudItem: CloudMetadataItem) throws {
-
-  }
-
   // FIXME: Multiple calls of reload cause issue on the bookmarks screen
   func reloadBookmarksOnTheMapIfNeeded() {
     if needsToReloadBookmarksOnTheMap {
       LOG(.debug, "Reloading bookmarks on the map...")
       needsToReloadBookmarksOnTheMap = false
       DispatchQueue.main.async {
+        // TODO: Needs to implement mechanism to reload only current categories, but not all
         self.bookmarksManager.loadBookmarks()
       }
     }
@@ -356,10 +345,6 @@ extension FileManager {
 
 // MARK: - URL + ResourceValues
 fileprivate extension URL {
-  var resourceLastModificationDate: Date? {
-    try? resourceValues(forKeys:[.contentModificationDateKey]).contentModificationDate
-  }
-
   mutating func setResourceModificationDate(_ date: Date) throws {
     var resource = try resourceValues(forKeys:[.contentModificationDateKey])
     resource.contentModificationDate = date

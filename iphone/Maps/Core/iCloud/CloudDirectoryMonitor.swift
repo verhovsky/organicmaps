@@ -20,7 +20,6 @@ final class CloudDirectoryMonitor: NSObject {
   private let metadataQuery = NSMetadataQuery()
   private var containerIdentifier: String
   private var ubiquitousDocumentsDirectory: URL?
-//  private(set) var contents = CloudContents()
 
   weak var delegate: CloudDirectoryMonitorDelegate?
 
@@ -36,7 +35,7 @@ final class CloudDirectoryMonitor: NSObject {
   // MARK: - Public
   var isStarted: Bool { return metadataQuery.isStarted }
 
-  func start(completion: ((VoidResult) -> Void)? = nil) {
+  func start(completion: VoidResultCompletionHandler? = nil) {
     guard cloudIsAvailable() else {
       completion?(.failure(CloudSynchronizationError.iCloudIsNotAvailable))
       return
@@ -44,11 +43,11 @@ final class CloudDirectoryMonitor: NSObject {
     fetchUbiquityDirectoryUrl { [weak self] result in
       guard let self else { return }
       switch result {
+      case .failure(let error):
+        completion?(.failure(error))
       case .success:
         self.startQuery()
         completion?(.success)
-      case .failure(let error):
-        completion?(.failure(error))
       }
     }
   }
@@ -65,6 +64,26 @@ final class CloudDirectoryMonitor: NSObject {
     metadataQuery.disableUpdates()
   }
 
+  func fetchUbiquityDirectoryUrl(completion: ((Result<URL, CloudSynchronizationError>) -> Void)? = nil) {
+    if let ubiquitousDocumentsDirectory {
+      completion?(.success(ubiquitousDocumentsDirectory))
+      return
+    }
+    DispatchQueue.global().async {
+      guard let containerUrl = FileManager.default.url(forUbiquityContainerIdentifier: self.containerIdentifier) else {
+        LOG(.error, "Failed to retrieve container's URL for:\(self.containerIdentifier)")
+        completion?(.failure(.containerNotFound))
+        return
+      }
+      let documentsContainerUrl = containerUrl.appendingPathComponent(kDocumentsDirectoryName)
+      self.ubiquitousDocumentsDirectory = documentsContainerUrl
+      completion?(.success(documentsContainerUrl))
+    }
+  }
+}
+
+// MARK: - Private
+private extension CloudDirectoryMonitor {
   func cloudIsAvailable() -> Bool {
     let cloudToken = FileManager.default.ubiquityIdentityToken
     guard let cloudToken else {
@@ -84,28 +103,11 @@ final class CloudDirectoryMonitor: NSObject {
     }
   }
 
-  // MARK: - Private
-  func fetchUbiquityDirectoryUrl(completion: ((Result<URL, CloudSynchronizationError>) -> Void)? = nil) {
-    if let ubiquitousDocumentsDirectory {
-      completion?(.success(ubiquitousDocumentsDirectory))
-      return
-    }
-    DispatchQueue.global().async {
-      guard let containerUrl = FileManager.default.url(forUbiquityContainerIdentifier: self.containerIdentifier) else {
-        LOG(.error, "Failed to retrieve container's URL for:\(self.containerIdentifier)")
-        completion?(.failure(.containerNotFound))
-        return
-      }
-      let documentsContainerUrl = containerUrl.appendingPathComponent(kDocumentsDirectoryName)
-      self.ubiquitousDocumentsDirectory = documentsContainerUrl
-      completion?(.success(documentsContainerUrl))
-    }
-  }
-
-  private func subscribeToCloudAvailabilityNotifications() {
+  func subscribeToCloudAvailabilityNotifications() {
     NotificationCenter.default.addObserver(self, selector: #selector(cloudAvailabilityChanged(_:)), name: .NSUbiquityIdentityDidChange, object: nil)
   }
 
+  // FIXME: - Actually this notification was never called. If user disable the iCloud for the curren app during the active state the app will be relaunched. Needs to investigate additional cases when this notification can be sent.
   @objc func cloudAvailabilityChanged(_ notification: Notification) {
     LOG(.debug, "Cloud availability changed to : \(cloudIsAvailable())")
     cloudIsAvailable() ? startQuery() : stopQuery()
@@ -122,20 +124,19 @@ final class CloudDirectoryMonitor: NSObject {
     NotificationCenter.default.addObserver(self, selector: #selector(queryDidUpdate(_:)), name: NSNotification.Name.NSMetadataQueryDidUpdate, object: nil)
   }
 
-  private func startQuery() {
+  func startQuery() {
     LOG(.info, "Start quering metadata.")
-    stopQuery()
+    guard !metadataQuery.isStarted else { return }
     metadataQuery.start()
   }
 
-  private func stopQuery() {
+  func stopQuery() {
     LOG(.info, "Stop quering metadata.")
     metadataQuery.stop()
   }
 
-  @objc private  func queryDidFinishGathering(_ notification: Notification) {
+  @objc func queryDidFinishGathering(_ notification: Notification) {
     guard cloudIsAvailable(), notification.object as? NSMetadataQuery === metadataQuery else { return }
-    LOG(.info, "NSMetadataQuery did finish gathering.")
 
     metadataQuery.disableUpdates()
     let results = metadataQuery.results.compactMap { $0 as? NSMetadataItem }
@@ -145,11 +146,8 @@ final class CloudDirectoryMonitor: NSObject {
     delegate?.didFinishGathering(contents: newContent)
   }
 
-  @objc private func queryDidUpdate(_ notification: Notification) {
+  @objc func queryDidUpdate(_ notification: Notification) {
     guard cloudIsAvailable(), notification.object as? NSMetadataQuery === metadataQuery else { return }
-    guard let changes = notification.userInfo else { fatalError("There is no UserInfo dictionary in the NSMetadataQuery notification.") }
-
-    LOG(.info, "NSMetadataQuery did update.")
 
     metadataQuery.disableUpdates()
     let results = metadataQuery.results.compactMap { $0 as? NSMetadataItem }
