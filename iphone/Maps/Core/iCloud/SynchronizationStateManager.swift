@@ -81,7 +81,7 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
     currentLocalContents = localContents
     currentCloudContents = cloudContents
     guard localContentsGatheringIsFinished, cloudContentGatheringIsFinished else { return [] }
-    
+
     let outgoingEvents: [OutgoingEvent]
     switch (localContents.isEmpty, cloudContents.isEmpty) {
     case (true, true):
@@ -98,15 +98,20 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
 
   private func resolveDidUpdateLocalContents(_ localContents: LocalContents) -> [OutgoingEvent] {
     let itemsToCreateInCloud = localContents.reduce(into: LocalContents()) { partialResult, localItem in
-      if !currentCloudContents.contains(localItem.key) {
+      if let cloudItemValue = currentCloudContents[localItem.key] {
+        // Merge conflict: if cloud .trash contains item and it's last modification date is less than local item's last modification date than file should be recreated.
+        if cloudItemValue.isInTrash, cloudItemValue.lastModificationDate < localItem.value.lastModificationDate {
+          partialResult[localItem.key] = localItem.value
+        }
+      } else {
         partialResult[localItem.key] = localItem.value
       }
     }
     let itemsToRemoveFromCloud = currentLocalContents.filter { !localContents.contains($0.key) }
     let itemsToUpdateInCloud = localContents.reduce(into: LocalContents()) { result, localItem in
-      if let currentItem = self.currentCloudContents[localItem.key],
-         !currentItem.isInTrash,
-         localItem.value.lastModificationDate > currentItem.lastModificationDate {
+      if let cloudItemValue = self.currentCloudContents[localItem.key],
+         !cloudItemValue.isInTrash,
+         localItem.value.lastModificationDate > cloudItemValue.lastModificationDate {
         result[localItem.key] = localItem.value
       }
     }
@@ -123,14 +128,16 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
   private func resolveDidUpdateCloudContents(_ cloudContents: CloudContents) -> [OutgoingEvent] {
     let itemsToCreateInLocal = cloudContents.filter { !currentLocalContents.contains($0.key) }
     let itemsToRemoveFromLocal = cloudContents.reduce(into: CloudContents()) { result, cloudItem in
-      if self.currentLocalContents.contains(cloudItem.key), cloudItem.value.isInTrash {
+      if let localItemValue = self.currentLocalContents[cloudItem.key],
+         cloudItem.value.isInTrash,
+         cloudItem.value.lastModificationDate >= localItemValue.lastModificationDate {
         result[cloudItem.key] = cloudItem.value
       }
     }
     let itemsToUpdateInLocal = cloudContents.reduce(into: CloudContents()) { result, cloudItem in
-      if let localItem = self.currentLocalContents[cloudItem.key],
+      if let localItemValue = self.currentLocalContents[cloudItem.key],
          !cloudItem.value.isInTrash,
-         cloudItem.value.lastModificationDate > localItem.lastModificationDate {
+         cloudItem.value.lastModificationDate > localItemValue.lastModificationDate {
         result[cloudItem.key] = cloudItem.value
       }
     }
@@ -163,6 +170,10 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
 extension Dictionary where Key == MetadataItemName, Value: MetadataItem {
   func contains(_ item: Key) -> Bool {
     return keys.contains(item)
+  }
+
+  mutating func add(_ item: Value) {
+    self[item.fileName] = item
   }
 
   init(_ items: [Value]) {

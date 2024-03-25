@@ -74,6 +74,32 @@ final class SynchronizationStateManagerTests: XCTestCase {
   }
 
   func testDidFinishGatheringWhenLocalIsEmptyAndAllCloudFilesWasDeleted() {
+    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1))
+    let localItem2 = LocalMetadataItem.stub(fileName: "file2", lastModificationDate: Date(timeIntervalSince1970: 2))
+    let localItem3 = LocalMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 3))
+
+    var cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 2), isInTrash: true)
+    var cloudItem2 = CloudMetadataItem.stub(fileName: "file2", lastModificationDate: Date(timeIntervalSince1970: 3), isInTrash: true)
+    var cloudItem3 = CloudMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 4), isInTrash: true)
+
+    let localItems = LocalContents([localItem1, localItem2, localItem3])
+    let cloudItems = CloudContents([cloudItem1, cloudItem2, cloudItem3])
+
+    outgoingEvents = syncStateManager.resolveEvent(.didFinishGatheringCloudContents(cloudItems))
+    outgoingEvents = syncStateManager.resolveEvent(.didFinishGatheringLocalContents(localItems))
+
+    XCTAssertEqual(outgoingEvents.count, 3)
+    outgoingEvents.forEach { event in
+      switch event {
+      case .removeLocalItem(let item):
+        XCTAssertTrue(localItems.contains(item.fileName))
+      default:
+        XCTFail()
+      }
+    }
+  }
+
+  func testDidFinishGatheringWhenLocalIsNotEmptyAndAllCloudFilesWasDeleted() {
     var cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1), isInTrash: true)
     var cloudItem2 = CloudMetadataItem.stub(fileName: "file2", lastModificationDate: Date(timeIntervalSince1970: 2), isInTrash: true)
     var cloudItem3 = CloudMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 3), isInTrash: true)
@@ -212,6 +238,59 @@ final class SynchronizationStateManagerTests: XCTestCase {
         XCTAssertEqual(item, localItem4)
       case .updateCloudItem(let item):
         XCTAssertEqual(item, localItem2)
+      default:
+        XCTFail()
+      }
+    }
+  }
+
+  func testDidFinishGatheringWhenUpdatetLocallyItemSameAsDeletedFromCloudOnTheOtherDevice() {
+    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1))
+
+    var cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1), isInTrash: true)
+
+    let localItems = LocalContents([localItem1])
+    var cloudItems = CloudContents([cloudItem1])
+
+    outgoingEvents = syncStateManager.resolveEvent(.didFinishGatheringLocalContents(localItems))
+    outgoingEvents = syncStateManager.resolveEvent(.didFinishGatheringCloudContents(cloudItems))
+
+    var localItemsToRemove: LocalContents = [:]
+    XCTAssertEqual(outgoingEvents.count, 1)
+    outgoingEvents.forEach { event in
+      switch event {
+      case .removeLocalItem(let cloudMetadataItem):
+        XCTAssertEqual(cloudMetadataItem, cloudItem1)
+        if let localItemToRemove = localItems[cloudMetadataItem.fileName] {
+          localItemsToRemove.add(localItemToRemove)
+        }
+      default:
+        XCTFail()
+      }
+    }
+
+    outgoingEvents = syncStateManager.resolveEvent(.didUpdateLocalContents(localItemsToRemove))
+    XCTAssertEqual(outgoingEvents.count, 0)
+  }
+
+  // MARK: - Test didFinishGathering MergeConflicts
+  func testDidFinishGatheringMergeConflictWhenUpdatetLocallyItemNewerThanDeletedFromCloudOnTheOtherDevice() {
+    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 2))
+
+    var cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1), isInTrash: true)
+
+    let localItems = LocalContents([localItem1])
+    var cloudItems = CloudContents([cloudItem1])
+
+    outgoingEvents = syncStateManager.resolveEvent(.didFinishGatheringLocalContents(localItems))
+    outgoingEvents = syncStateManager.resolveEvent(.didFinishGatheringCloudContents(cloudItems))
+
+    // Here should be a merge conflict. New Cloud file should be created.
+    XCTAssertEqual(outgoingEvents.count, 1)
+    outgoingEvents.forEach { event in
+      switch event {
+      case .createCloudItem(let cloudMetadataItem):
+        XCTAssertEqual(cloudMetadataItem, localItem1)
       default:
         XCTFail()
       }
@@ -446,6 +525,50 @@ final class SynchronizationStateManagerTests: XCTestCase {
         XCTFail()
       }
     }
+  }
+
+  func testDidUpdateCloudContentsWhenAllContentWasTrashed() {
+    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1))
+    let localItem2 = LocalMetadataItem.stub(fileName: "file2", lastModificationDate: Date(timeIntervalSince1970: 2))
+    let localItem3 = LocalMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 3))
+
+    var cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1), isInTrash: false)
+    var cloudItem2 = CloudMetadataItem.stub(fileName: "file2", lastModificationDate: Date(timeIntervalSince1970: 2), isInTrash: false)
+    var cloudItem3 = CloudMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 3), isInTrash: false)
+
+    let localItems = LocalContents([localItem1, localItem2, localItem3])
+    var cloudItems = CloudContents([cloudItem1, cloudItem2, cloudItem3])
+
+    outgoingEvents = syncStateManager.resolveEvent(.didFinishGatheringLocalContents(localItems))
+    outgoingEvents = syncStateManager.resolveEvent(.didFinishGatheringCloudContents(cloudItems))
+
+    XCTAssertEqual(outgoingEvents.count, 0)
+
+    cloudItem1.isInTrash = true
+    cloudItem2.isInTrash = true
+    cloudItem3.isInTrash = true
+
+    cloudItems = CloudContents([cloudItem1, cloudItem2, cloudItem3])
+
+    outgoingEvents = syncStateManager.resolveEvent(.didUpdateCloudContents(cloudItems))
+    XCTAssertEqual(outgoingEvents.count, 3)
+
+    var localItemsToRemove: LocalContents = [:]
+    outgoingEvents.forEach { event in
+      switch event {
+      case .removeLocalItem(let cloudMetadataItem):
+        XCTAssertTrue(cloudItems.contains(cloudMetadataItem.fileName))
+        if let localItemToRemove = localItems[cloudMetadataItem.fileName] {
+          localItemsToRemove.add(localItemToRemove)
+        }
+      default:
+        XCTFail()
+      }
+    }
+
+    outgoingEvents = syncStateManager.resolveEvent(.didUpdateLocalContents(localItemsToRemove))
+    // Because all cloud items in .trash and we have removed all local items, we should not have any outgoing events.
+    XCTAssertEqual(outgoingEvents.count, 0)
   }
 }
 
