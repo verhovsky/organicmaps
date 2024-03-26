@@ -158,6 +158,7 @@ private extension CloudStorageManger {
         case .updateLocalItem(let cloudMetadataItem): self.writeToTheLocalContainer(cloudMetadataItem, completion: self.resultCompletionHandler())
         case .removeLocalItem(let cloudMetadataItem): self.removeFromTheLocalContainer(cloudMetadataItem, completion: self.resultCompletionHandler())
         case .startDownloading(let cloudMetadataItem): self.startDownloading(cloudMetadataItem, completion: self.resultCompletionHandler())
+        case .resolveVersionsConflict(let cloudMetadataItem): self.resolveVersionsConflict(cloudMetadataItem, completion: self.resultCompletionHandler())
         case .createCloudItem(let localMetadataItem): self.writeToTheCloudContainer(localMetadataItem, completion: self.resultCompletionHandler())
         case .updateCloudItem(let localMetadataItem): self.writeToTheCloudContainer(localMetadataItem, completion: self.resultCompletionHandler())
         case .removeCloudItem(let localMetadataItem): self.removeFromTheCloudContainer(localMetadataItem, completion: self.resultCompletionHandler())
@@ -279,7 +280,7 @@ private extension CloudStorageManger {
         let targetCloudFileUrl = cloudDirectoryUrl.appendingPathComponent(localMetadataItem.fileName)
         var coordinationError: NSError?
 
-        fileCoordinator.coordinate(writingItemAt: targetCloudFileUrl, options: [.forMoving], error: &coordinationError) { url in
+        fileCoordinator.coordinate(writingItemAt: targetCloudFileUrl, options: [.forDeleting], error: &coordinationError) { url in
           do {
             try FileManager.default.trashItem(at: url, resultingItemURL: nil)
             completion(.success)
@@ -295,6 +296,56 @@ private extension CloudStorageManger {
     }
   }
 
+  func resolveVersionsConflict(_ cloudMetadataItem: CloudMetadataItem, completion: VoidResultCompletionHandler) {
+    LOG(.debug, "Start resolving version conflict for file \(cloudMetadataItem.fileName)...")
+    guard let versionsInConflict = NSFileVersion.unresolvedConflictVersionsOfItem(at: cloudMetadataItem.fileUrl),
+          let currentVersion = NSFileVersion.currentVersionOfItem(at: cloudMetadataItem.fileUrl) else {
+      completion(.success)
+      return
+    }
+    LOG(.debug, "Versions in conflict:")
+    var lastModifiedVersionInConflict = currentVersion
+    for version in versionsInConflict {
+      LOG(.debug, "\(version.modificationDate!)")
+      if let date1 = version.modificationDate, let date2 = lastModifiedVersionInConflict.modificationDate, date1 > date2 {
+        lastModifiedVersionInConflict = version
+      }
+    }
+    LOG(.debug, "Current version: \(currentVersion) - \(currentVersion.modificationDate!)")
+    LOG(.debug, "Last modified version in conflict: \(lastModifiedVersionInConflict) - \(lastModifiedVersionInConflict.modificationDate!)")
+    if lastModifiedVersionInConflict != currentVersion {
+      LOG(.debug, "lastModifiedVersionInConflict is different from currentVersion.")
+      // TODO: handle proper file renaming
+      let targetLocalFileUrl = localDirectoryUrl.appendingPathComponent("new_" + cloudMetadataItem.fileName)
+      var coordinationError: NSError?
+      fileCoordinator.coordinate(readingItemAt: cloudMetadataItem.fileUrl, error: &coordinationError) { url in
+        do {
+          try FileManager.default.copyItem(at: url, to: targetLocalFileUrl)
+          try lastModifiedVersionInConflict.replaceItem(at: cloudMetadataItem.fileUrl)
+          try NSFileVersion.removeOtherVersionsOfItem(at: cloudMetadataItem.fileUrl)
+          LOG(.debug, "Version conflict is resolved for file \(cloudMetadataItem.fileName). Last modified version is: \(lastModifiedVersionInConflict.modificationDate!)")
+          completion(.success)
+        } catch {
+          LOG(.error, "Failed to resolve version conflict for file \(cloudMetadataItem.fileName).")
+          completion(.failure(error))
+        }
+      }
+      if let coordinationError {
+        completion(.failure(coordinationError))
+      }
+      return
+    }
+    LOG(.debug, "lastModifiedVersionInConflict is the same as currentVersion.")
+    do {
+      try NSFileVersion.removeOtherVersionsOfItem(at: cloudMetadataItem.fileUrl)
+      LOG(.debug, "Other versions of file \(cloudMetadataItem.fileName) are removed successfully.")
+      completion(.success)
+    } catch {
+      LOG(.error, "Failed to remove other versions of file \(cloudMetadataItem.fileName).")
+      completion(.failure(error))
+    }
+  }
+
   // FIXME: Multiple calls of reload cause issue on the bookmarks screen
   func reloadBookmarksOnTheMapIfNeeded() {
     if needsToReloadBookmarksOnTheMap {
@@ -302,6 +353,7 @@ private extension CloudStorageManger {
       needsToReloadBookmarksOnTheMap = false
       DispatchQueue.main.async {
         // TODO: Needs to implement mechanism to reload only current categories, but not all
+        // TODO: Lock read/write access to the bookmarksManager
         self.bookmarksManager.loadBookmarks()
       }
     }
@@ -353,11 +405,11 @@ fileprivate extension URL {
 }
 
 fileprivate extension Data {
-  func write(to url: URL, options: Data.WritingOptions = .atomic, lastModificationDate: Date? = nil) throws {
+  func write(to url: URL, options: Data.WritingOptions = .atomic, lastModificationDate: TimeInterval? = nil) throws {
     var url = url
     try write(to: url, options: options)
     if let lastModificationDate {
-      try url.setResourceModificationDate(lastModificationDate)
+      try url.setResourceModificationDate(Date(timeIntervalSince1970: lastModificationDate))
     }
   }
 }
