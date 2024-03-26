@@ -137,23 +137,27 @@ private extension CloudDirectoryMonitor {
 
   @objc func queryDidFinishGathering(_ notification: Notification) {
     guard cloudIsAvailable(), notification.object as? NSMetadataQuery === metadataQuery else { return }
-
-    metadataQuery.disableUpdates()
-    let results = metadataQuery.results.compactMap { $0 as? NSMetadataItem }
-    let newContent = CloudContents(results.map { CloudMetadataItem(metadataItem: $0) })
-    metadataQuery.enableUpdates()
-
+    let newContent = getContentFromMetadataQuery(metadataQuery)
     delegate?.didFinishGathering(contents: newContent)
   }
 
   @objc func queryDidUpdate(_ notification: Notification) {
     guard cloudIsAvailable(), notification.object as? NSMetadataQuery === metadataQuery else { return }
-
-    metadataQuery.disableUpdates()
-    let results = metadataQuery.results.compactMap { $0 as? NSMetadataItem }
-    let newContent = CloudContents(results.map { CloudMetadataItem(metadataItem: $0) })
-    metadataQuery.enableUpdates()
-
+    let newContent = getContentFromMetadataQuery(metadataQuery)
     delegate?.didUpdate(contents: newContent)
+  }
+
+  private func getContentFromMetadataQuery(_ metadataQuery: NSMetadataQuery) -> CloudContents {
+    var content = CloudContents()
+    metadataQuery.enumerateResults { result, _, _ in
+      guard let metadataItem = result as? NSMetadataItem else { return }
+      do {
+        let cloudMetadataItem = try CloudMetadataItem(metadataItem: metadataItem)
+        content.add(cloudMetadataItem)
+      } catch {
+        LOG(.error, "Failed to create CloudMetadataItem: \(error)")
+      }
+    }
+    return content
   }
 }

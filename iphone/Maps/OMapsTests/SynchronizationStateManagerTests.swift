@@ -29,9 +29,9 @@ final class SynchronizationStateManagerTests: XCTestCase {
   }
 
   func testDidFinishGatheringWhenOnlyCloudIsEmpty() {
-    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1))
-    let localItem2 = LocalMetadataItem.stub(fileName: "file2", lastModificationDate: Date(timeIntervalSince1970: 2))
-    let localItem3 = LocalMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 3))
+    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(1))
+    let localItem2 = LocalMetadataItem.stub(fileName: "file2", lastModificationDate: TimeInterval(2))
+    let localItem3 = LocalMetadataItem.stub(fileName: "file3", lastModificationDate: TimeInterval(3))
 
     let localItems: LocalContents = LocalContents([localItem1, localItem2, localItem3])
     let cloudItems: CloudContents = [:]
@@ -52,9 +52,9 @@ final class SynchronizationStateManagerTests: XCTestCase {
   }
 
   func testDidFinishGatheringWhenOnlyLocalIsEmpty() {
-    var cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1), isInTrash: false)
-    var cloudItem2 = CloudMetadataItem.stub(fileName: "file2", lastModificationDate: Date(timeIntervalSince1970: 2), isInTrash: false)
-    var cloudItem3 = CloudMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 3), isInTrash: false)
+    var cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(1), isInTrash: false)
+    var cloudItem2 = CloudMetadataItem.stub(fileName: "file2", lastModificationDate: TimeInterval(2), isInTrash: false)
+    var cloudItem3 = CloudMetadataItem.stub(fileName: "file3", lastModificationDate: TimeInterval(3), isInTrash: false)
 
     let localItems = LocalContents()
     let cloudItems = CloudContents([cloudItem1, cloudItem2, cloudItem3])
@@ -74,13 +74,13 @@ final class SynchronizationStateManagerTests: XCTestCase {
   }
 
   func testDidFinishGatheringWhenLocalIsEmptyAndAllCloudFilesWasDeleted() {
-    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1))
-    let localItem2 = LocalMetadataItem.stub(fileName: "file2", lastModificationDate: Date(timeIntervalSince1970: 2))
-    let localItem3 = LocalMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 3))
+    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(1))
+    let localItem2 = LocalMetadataItem.stub(fileName: "file2", lastModificationDate: TimeInterval(2))
+    let localItem3 = LocalMetadataItem.stub(fileName: "file3", lastModificationDate: TimeInterval(3))
 
-    var cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 2), isInTrash: true)
-    var cloudItem2 = CloudMetadataItem.stub(fileName: "file2", lastModificationDate: Date(timeIntervalSince1970: 3), isInTrash: true)
-    var cloudItem3 = CloudMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 4), isInTrash: true)
+    var cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(2), isInTrash: true)
+    var cloudItem2 = CloudMetadataItem.stub(fileName: "file2", lastModificationDate: TimeInterval(3), isInTrash: true)
+    var cloudItem3 = CloudMetadataItem.stub(fileName: "file3", lastModificationDate: TimeInterval(4), isInTrash: true)
 
     let localItems = LocalContents([localItem1, localItem2, localItem3])
     let cloudItems = CloudContents([cloudItem1, cloudItem2, cloudItem3])
@@ -100,9 +100,9 @@ final class SynchronizationStateManagerTests: XCTestCase {
   }
 
   func testDidFinishGatheringWhenLocalIsNotEmptyAndAllCloudFilesWasDeleted() {
-    var cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1), isInTrash: true)
-    var cloudItem2 = CloudMetadataItem.stub(fileName: "file2", lastModificationDate: Date(timeIntervalSince1970: 2), isInTrash: true)
-    var cloudItem3 = CloudMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 3), isInTrash: true)
+    var cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(1), isInTrash: true)
+    var cloudItem2 = CloudMetadataItem.stub(fileName: "file2", lastModificationDate: TimeInterval(2), isInTrash: true)
+    var cloudItem3 = CloudMetadataItem.stub(fileName: "file3", lastModificationDate: TimeInterval(3), isInTrash: true)
 
     let localItems = LocalContents()
     let cloudItems = CloudContents([cloudItem1, cloudItem2, cloudItem3])
@@ -115,9 +115,9 @@ final class SynchronizationStateManagerTests: XCTestCase {
   }
 
   func testDidFinishGatheringWhenLocalIsEmptyAndSomeCloudFilesWasDeleted() {
-    var cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1), isInTrash: true)
-    var cloudItem2 = CloudMetadataItem.stub(fileName: "file2", lastModificationDate: Date(timeIntervalSince1970: 2), isInTrash: true)
-    var cloudItem3 = CloudMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 3), isInTrash: false)
+    var cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(1), isInTrash: true)
+    var cloudItem2 = CloudMetadataItem.stub(fileName: "file2", lastModificationDate: TimeInterval(2), isInTrash: true)
+    var cloudItem3 = CloudMetadataItem.stub(fileName: "file3", lastModificationDate: TimeInterval(3), isInTrash: false)
 
     let localItems = LocalContents()
     let cloudItems = CloudContents([cloudItem1, cloudItem2, cloudItem3])
@@ -138,13 +138,13 @@ final class SynchronizationStateManagerTests: XCTestCase {
   }
 
   func testDidFinishGatheringWhenLocalAndCloudAreNotEmptyAndEqual() {
-    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1))
-    let localItem2 = LocalMetadataItem.stub(fileName: "file2", lastModificationDate: Date(timeIntervalSince1970: 2))
-    let localItem3 = LocalMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 3))
+    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(1))
+    let localItem2 = LocalMetadataItem.stub(fileName: "file2", lastModificationDate: TimeInterval(2))
+    let localItem3 = LocalMetadataItem.stub(fileName: "file3", lastModificationDate: TimeInterval(3))
 
-    var cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1), isInTrash: false)
-    var cloudItem2 = CloudMetadataItem.stub(fileName: "file2", lastModificationDate: Date(timeIntervalSince1970: 2), isInTrash: false)
-    var cloudItem3 = CloudMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 3), isInTrash: false)
+    var cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(1), isInTrash: false)
+    var cloudItem2 = CloudMetadataItem.stub(fileName: "file2", lastModificationDate: TimeInterval(2), isInTrash: false)
+    var cloudItem3 = CloudMetadataItem.stub(fileName: "file3", lastModificationDate: TimeInterval(3), isInTrash: false)
 
     let localItems = LocalContents([localItem1, localItem2, localItem3])
     let cloudItems = CloudContents([cloudItem1, cloudItem2, cloudItem3])
@@ -157,13 +157,13 @@ final class SynchronizationStateManagerTests: XCTestCase {
   }
 
   func testDidFinishGatheringWhenLocalAndCloudAreNotEmptyAndSomeLocalItemsAreNewer() {
-    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1))
-    let localItem2 = LocalMetadataItem.stub(fileName: "file2", lastModificationDate: Date(timeIntervalSince1970: 3))
-    let localItem3 = LocalMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 4))
+    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(1))
+    let localItem2 = LocalMetadataItem.stub(fileName: "file2", lastModificationDate: TimeInterval(3))
+    let localItem3 = LocalMetadataItem.stub(fileName: "file3", lastModificationDate: TimeInterval(4))
 
-    var cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1), isInTrash: false)
-    var cloudItem2 = CloudMetadataItem.stub(fileName: "file2", lastModificationDate: Date(timeIntervalSince1970: 2), isInTrash: false)
-    var cloudItem3 = CloudMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 3), isInTrash: false)
+    var cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(1), isInTrash: false)
+    var cloudItem2 = CloudMetadataItem.stub(fileName: "file2", lastModificationDate: TimeInterval(2), isInTrash: false)
+    var cloudItem3 = CloudMetadataItem.stub(fileName: "file3", lastModificationDate: TimeInterval(3), isInTrash: false)
 
     let localItems = LocalContents([localItem1, localItem2, localItem3])
     let cloudItems = CloudContents([cloudItem1, cloudItem2, cloudItem3])
@@ -184,13 +184,13 @@ final class SynchronizationStateManagerTests: XCTestCase {
   }
 
   func testDidFinishGatheringWhenLocalAndCloudAreNotEmptyAndSomeCloudItemsAreNewer() {
-    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1))
-    let localItem2 = LocalMetadataItem.stub(fileName: "file2", lastModificationDate: Date(timeIntervalSince1970: 2))
-    let localItem3 = LocalMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 3))
+    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(1))
+    let localItem2 = LocalMetadataItem.stub(fileName: "file2", lastModificationDate: TimeInterval(2))
+    let localItem3 = LocalMetadataItem.stub(fileName: "file3", lastModificationDate: TimeInterval(3))
 
-    var cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 4), isInTrash: false)
-    var cloudItem2 = CloudMetadataItem.stub(fileName: "file2", lastModificationDate: Date(timeIntervalSince1970: 2), isInTrash: false)
-    var cloudItem3 = CloudMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 7), isInTrash: false)
+    var cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(4), isInTrash: false)
+    var cloudItem2 = CloudMetadataItem.stub(fileName: "file2", lastModificationDate: TimeInterval(2), isInTrash: false)
+    var cloudItem3 = CloudMetadataItem.stub(fileName: "file3", lastModificationDate: TimeInterval(7), isInTrash: false)
 
     let localItems = LocalContents([localItem1, localItem2, localItem3])
     let cloudItems = CloudContents([cloudItem1, cloudItem2, cloudItem3])
@@ -211,14 +211,14 @@ final class SynchronizationStateManagerTests: XCTestCase {
   }
 
   func testDidFinishGatheringWhenLocalAndCloudAreNotEmptyMixed() {
-    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1))
-    let localItem2 = LocalMetadataItem.stub(fileName: "file2", lastModificationDate: Date(timeIntervalSince1970: 3))
-    let localItem3 = LocalMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 3))
-    let localItem4 = LocalMetadataItem.stub(fileName: "file4", lastModificationDate: Date(timeIntervalSince1970: 1))
+    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(1))
+    let localItem2 = LocalMetadataItem.stub(fileName: "file2", lastModificationDate: TimeInterval(3))
+    let localItem3 = LocalMetadataItem.stub(fileName: "file3", lastModificationDate: TimeInterval(3))
+    let localItem4 = LocalMetadataItem.stub(fileName: "file4", lastModificationDate: TimeInterval(1))
 
-    let cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 4), isInTrash: false)
-    let cloudItem2 = CloudMetadataItem.stub(fileName: "file2", lastModificationDate: Date(timeIntervalSince1970: 2), isInTrash: false)
-    let cloudItem3 = CloudMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 7), isInTrash: true)
+    let cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(4), isInTrash: false)
+    let cloudItem2 = CloudMetadataItem.stub(fileName: "file2", lastModificationDate: TimeInterval(2), isInTrash: false)
+    let cloudItem3 = CloudMetadataItem.stub(fileName: "file3", lastModificationDate: TimeInterval(7), isInTrash: true)
 
     let localItems = LocalContents([localItem1, localItem2, localItem3, localItem4])
     let cloudItems = CloudContents([cloudItem1, cloudItem2, cloudItem3])
@@ -245,9 +245,9 @@ final class SynchronizationStateManagerTests: XCTestCase {
   }
 
   func testDidFinishGatheringWhenUpdatetLocallyItemSameAsDeletedFromCloudOnTheOtherDevice() {
-    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1))
+    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(1))
 
-    var cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1), isInTrash: true)
+    var cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(1), isInTrash: true)
 
     let localItems = LocalContents([localItem1])
     var cloudItems = CloudContents([cloudItem1])
@@ -275,9 +275,9 @@ final class SynchronizationStateManagerTests: XCTestCase {
 
   // MARK: - Test didFinishGathering MergeConflicts
   func testDidFinishGatheringMergeConflictWhenUpdatetLocallyItemNewerThanDeletedFromCloudOnTheOtherDevice() {
-    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 2))
+    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(2))
 
-    var cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1), isInTrash: true)
+    var cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(1), isInTrash: true)
 
     let localItems = LocalContents([localItem1])
     var cloudItems = CloudContents([cloudItem1])
@@ -297,11 +297,12 @@ final class SynchronizationStateManagerTests: XCTestCase {
     }
   }
 
+
   // MARK: - Test didUpdateLocalContents
   func testDidUpdateLocalContentsWhenContentWasNotChanged() {
-    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1))
-    let localItem2 = LocalMetadataItem.stub(fileName: "file2", lastModificationDate: Date(timeIntervalSince1970: 2))
-    let localItem3 = LocalMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 3))
+    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(1))
+    let localItem2 = LocalMetadataItem.stub(fileName: "file2", lastModificationDate: TimeInterval(2))
+    let localItem3 = LocalMetadataItem.stub(fileName: "file3", lastModificationDate: TimeInterval(3))
 
     let localItems = LocalContents([localItem1, localItem2, localItem3])
     let cloudItems = CloudContents([])
@@ -318,13 +319,13 @@ final class SynchronizationStateManagerTests: XCTestCase {
   }
 
   func testDidUpdateLocalContentsWhenNewLocalItemWasAdded() {
-    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1))
-    let localItem2 = LocalMetadataItem.stub(fileName: "file2", lastModificationDate: Date(timeIntervalSince1970: 2))
-    let localItem3 = LocalMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 3))
+    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(1))
+    let localItem2 = LocalMetadataItem.stub(fileName: "file2", lastModificationDate: TimeInterval(2))
+    let localItem3 = LocalMetadataItem.stub(fileName: "file3", lastModificationDate: TimeInterval(3))
 
-    let cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1), isInTrash: false)
-    let cloudItem2 = CloudMetadataItem.stub(fileName: "file2", lastModificationDate: Date(timeIntervalSince1970: 2), isInTrash: false)
-    let cloudItem3 = CloudMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 3), isInTrash: false)
+    let cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(1), isInTrash: false)
+    let cloudItem2 = CloudMetadataItem.stub(fileName: "file2", lastModificationDate: TimeInterval(2), isInTrash: false)
+    let cloudItem3 = CloudMetadataItem.stub(fileName: "file3", lastModificationDate: TimeInterval(3), isInTrash: false)
 
     let localItems = LocalContents([localItem1, localItem2, localItem3])
     let cloudItems = CloudContents([cloudItem1, cloudItem2, cloudItem3])
@@ -334,7 +335,7 @@ final class SynchronizationStateManagerTests: XCTestCase {
 
     XCTAssertEqual(outgoingEvents.count, 0)
 
-    let localItem4 = LocalMetadataItem.stub(fileName: "file4", lastModificationDate: Date(timeIntervalSince1970: 4))
+    let localItem4 = LocalMetadataItem.stub(fileName: "file4", lastModificationDate: TimeInterval(4))
     let newLocalItems = LocalContents([localItem1, localItem2, localItem3, localItem4])
 
     outgoingEvents = syncStateManager.resolveEvent(.didUpdateLocalContents(newLocalItems))
@@ -351,13 +352,13 @@ final class SynchronizationStateManagerTests: XCTestCase {
   }
 
   func testDidUpdateLocalContentsWhenLocalItemWasUpdated() {
-    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1))
-    let localItem2 = LocalMetadataItem.stub(fileName: "file2", lastModificationDate: Date(timeIntervalSince1970: 2))
-    let localItem3 = LocalMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 3))
+    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(1))
+    let localItem2 = LocalMetadataItem.stub(fileName: "file2", lastModificationDate: TimeInterval(2))
+    let localItem3 = LocalMetadataItem.stub(fileName: "file3", lastModificationDate: TimeInterval(3))
 
-    var cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1), isInTrash: false)
-    var cloudItem2 = CloudMetadataItem.stub(fileName: "file2", lastModificationDate: Date(timeIntervalSince1970: 2), isInTrash: false)
-    var cloudItem3 = CloudMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 3), isInTrash: false)
+    var cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(1), isInTrash: false)
+    var cloudItem2 = CloudMetadataItem.stub(fileName: "file2", lastModificationDate: TimeInterval(2), isInTrash: false)
+    var cloudItem3 = CloudMetadataItem.stub(fileName: "file3", lastModificationDate: TimeInterval(3), isInTrash: false)
 
     let localItems = LocalContents([localItem1, localItem2, localItem3])
     let cloudItems = CloudContents([cloudItem1, cloudItem2, cloudItem3])
@@ -367,8 +368,8 @@ final class SynchronizationStateManagerTests: XCTestCase {
 
     XCTAssertEqual(outgoingEvents.count, 0)
 
-    let localItem2Updated = LocalMetadataItem.stub(fileName: "file2", lastModificationDate: Date(timeIntervalSince1970: 3))
-    let localItem3Updated = LocalMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 4))
+    let localItem2Updated = LocalMetadataItem.stub(fileName: "file2", lastModificationDate: TimeInterval(3))
+    let localItem3Updated = LocalMetadataItem.stub(fileName: "file3", lastModificationDate: TimeInterval(4))
 
     let newLocalItems = LocalContents([localItem1, localItem2Updated, localItem3Updated])
     outgoingEvents = syncStateManager.resolveEvent(.didUpdateLocalContents(newLocalItems))
@@ -385,13 +386,13 @@ final class SynchronizationStateManagerTests: XCTestCase {
   }
 
   func testDidUpdateLocalContentsWhenLocalItemWasRemoved() {
-    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1))
-    let localItem2 = LocalMetadataItem.stub(fileName: "file2", lastModificationDate: Date(timeIntervalSince1970: 2))
-    let localItem3 = LocalMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 3))
+    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(1))
+    let localItem2 = LocalMetadataItem.stub(fileName: "file2", lastModificationDate: TimeInterval(2))
+    let localItem3 = LocalMetadataItem.stub(fileName: "file3", lastModificationDate: TimeInterval(3))
 
-    var cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1), isInTrash: false)
-    var cloudItem2 = CloudMetadataItem.stub(fileName: "file2", lastModificationDate: Date(timeIntervalSince1970: 2), isInTrash: false)
-    var cloudItem3 = CloudMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 3), isInTrash: false)
+    var cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(1), isInTrash: false)
+    var cloudItem2 = CloudMetadataItem.stub(fileName: "file2", lastModificationDate: TimeInterval(2), isInTrash: false)
+    var cloudItem3 = CloudMetadataItem.stub(fileName: "file3", lastModificationDate: TimeInterval(3), isInTrash: false)
 
     let localItems = LocalContents([localItem1, localItem2, localItem3])
     let cloudItems = CloudContents([cloudItem1, cloudItem2, cloudItem3])
@@ -417,13 +418,13 @@ final class SynchronizationStateManagerTests: XCTestCase {
   }
 
   func testDidUpdateLocalContentsComplexUpdate() {
-    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1))
-    let localItem2 = LocalMetadataItem.stub(fileName: "file2", lastModificationDate: Date(timeIntervalSince1970: 2))
-    let localItem3 = LocalMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 3))
+    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(1))
+    let localItem2 = LocalMetadataItem.stub(fileName: "file2", lastModificationDate: TimeInterval(2))
+    let localItem3 = LocalMetadataItem.stub(fileName: "file3", lastModificationDate: TimeInterval(3))
 
-    let cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1), isInTrash: false)
-    let cloudItem2 = CloudMetadataItem.stub(fileName: "file2", lastModificationDate: Date(timeIntervalSince1970: 2), isInTrash: false)
-    let cloudItem3 = CloudMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 3), isInTrash: false)
+    let cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(1), isInTrash: false)
+    let cloudItem2 = CloudMetadataItem.stub(fileName: "file2", lastModificationDate: TimeInterval(2), isInTrash: false)
+    let cloudItem3 = CloudMetadataItem.stub(fileName: "file3", lastModificationDate: TimeInterval(3), isInTrash: false)
 
     let localItems = LocalContents([localItem1, localItem2, localItem3])
     let cloudItems = CloudContents([cloudItem1, cloudItem2, cloudItem3])
@@ -433,10 +434,10 @@ final class SynchronizationStateManagerTests: XCTestCase {
 
     XCTAssertEqual(outgoingEvents.count, 0)
 
-    let localItem1New = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 2))
-    let localItem3New = LocalMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 4))
-    let localItem4New = LocalMetadataItem.stub(fileName: "file4", lastModificationDate: Date(timeIntervalSince1970: 5))
-    let localItem5New = LocalMetadataItem.stub(fileName: "file5", lastModificationDate: Date(timeIntervalSince1970: 5))
+    let localItem1New = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(2))
+    let localItem3New = LocalMetadataItem.stub(fileName: "file3", lastModificationDate: TimeInterval(4))
+    let localItem4New = LocalMetadataItem.stub(fileName: "file4", lastModificationDate: TimeInterval(5))
+    let localItem5New = LocalMetadataItem.stub(fileName: "file5", lastModificationDate: TimeInterval(5))
 
     let newLocalItems = LocalContents([localItem1New, localItem3New, localItem4New, localItem5New])
 
@@ -459,13 +460,13 @@ final class SynchronizationStateManagerTests: XCTestCase {
 
   // TODO: Test didUpdateCloudContents
   func testDidUpdateCloudContentsWhenContentWasNotChanged() {
-    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1))
-    let localItem2 = LocalMetadataItem.stub(fileName: "file2", lastModificationDate: Date(timeIntervalSince1970: 2))
-    let localItem3 = LocalMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 3))
+    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(1))
+    let localItem2 = LocalMetadataItem.stub(fileName: "file2", lastModificationDate: TimeInterval(2))
+    let localItem3 = LocalMetadataItem.stub(fileName: "file3", lastModificationDate: TimeInterval(3))
 
-    var cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1), isInTrash: false)
-    var cloudItem2 = CloudMetadataItem.stub(fileName: "file2", lastModificationDate: Date(timeIntervalSince1970: 2), isInTrash: false)
-    var cloudItem3 = CloudMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 3), isInTrash: false)
+    var cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(1), isInTrash: false)
+    var cloudItem2 = CloudMetadataItem.stub(fileName: "file2", lastModificationDate: TimeInterval(2), isInTrash: false)
+    var cloudItem3 = CloudMetadataItem.stub(fileName: "file3", lastModificationDate: TimeInterval(3), isInTrash: false)
 
     let localItems = LocalContents([localItem1, localItem2, localItem3])
     let cloudItems = CloudContents([cloudItem1, cloudItem2, cloudItem3])
@@ -482,13 +483,13 @@ final class SynchronizationStateManagerTests: XCTestCase {
   }
 
   func testDidUpdateCloudContentsWhenContentItemWasAdded() {
-    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1))
-    let localItem2 = LocalMetadataItem.stub(fileName: "file2", lastModificationDate: Date(timeIntervalSince1970: 2))
-    let localItem3 = LocalMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 3))
+    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(1))
+    let localItem2 = LocalMetadataItem.stub(fileName: "file2", lastModificationDate: TimeInterval(2))
+    let localItem3 = LocalMetadataItem.stub(fileName: "file3", lastModificationDate: TimeInterval(3))
 
-    let cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1), isInTrash: false)
-    let cloudItem2 = CloudMetadataItem.stub(fileName: "file2", lastModificationDate: Date(timeIntervalSince1970: 2), isInTrash: false)
-    let cloudItem3 = CloudMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 3), isInTrash: false)
+    let cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(1), isInTrash: false)
+    let cloudItem2 = CloudMetadataItem.stub(fileName: "file2", lastModificationDate: TimeInterval(2), isInTrash: false)
+    let cloudItem3 = CloudMetadataItem.stub(fileName: "file3", lastModificationDate: TimeInterval(3), isInTrash: false)
 
     let localItems = LocalContents([localItem1, localItem2, localItem3])
     var cloudItems = CloudContents([cloudItem1, cloudItem2, cloudItem3])
@@ -498,7 +499,7 @@ final class SynchronizationStateManagerTests: XCTestCase {
 
     XCTAssertEqual(outgoingEvents.count, 0)
 
-    var cloudItem4 = CloudMetadataItem.stub(fileName: "file4", lastModificationDate: Date(timeIntervalSince1970: 3), isInTrash: false, isDownloaded: false)
+    var cloudItem4 = CloudMetadataItem.stub(fileName: "file4", lastModificationDate: TimeInterval(3), isInTrash: false, isDownloaded: false)
     cloudItems[cloudItem4.fileName] = cloudItem4
 
     outgoingEvents = syncStateManager.resolveEvent(.didUpdateCloudContents(cloudItems))
@@ -528,13 +529,13 @@ final class SynchronizationStateManagerTests: XCTestCase {
   }
 
   func testDidUpdateCloudContentsWhenAllContentWasTrashed() {
-    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1))
-    let localItem2 = LocalMetadataItem.stub(fileName: "file2", lastModificationDate: Date(timeIntervalSince1970: 2))
-    let localItem3 = LocalMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 3))
+    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(1))
+    let localItem2 = LocalMetadataItem.stub(fileName: "file2", lastModificationDate: TimeInterval(2))
+    let localItem3 = LocalMetadataItem.stub(fileName: "file3", lastModificationDate: TimeInterval(3))
 
-    var cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: Date(timeIntervalSince1970: 1), isInTrash: false)
-    var cloudItem2 = CloudMetadataItem.stub(fileName: "file2", lastModificationDate: Date(timeIntervalSince1970: 2), isInTrash: false)
-    var cloudItem3 = CloudMetadataItem.stub(fileName: "file3", lastModificationDate: Date(timeIntervalSince1970: 3), isInTrash: false)
+    var cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(1), isInTrash: false)
+    var cloudItem2 = CloudMetadataItem.stub(fileName: "file2", lastModificationDate: TimeInterval(2), isInTrash: false)
+    var cloudItem3 = CloudMetadataItem.stub(fileName: "file3", lastModificationDate: TimeInterval(3), isInTrash: false)
 
     let localItems = LocalContents([localItem1, localItem2, localItem3])
     var cloudItems = CloudContents([cloudItem1, cloudItem2, cloudItem3])

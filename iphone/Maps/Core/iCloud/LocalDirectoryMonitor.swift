@@ -120,7 +120,15 @@ final class LocalDirectoryMonitor {
     state = .started(dirSource: dirSource)
 
     let newContents = LocalDirectoryMonitor.contents(of: directory, matching: typeIdentifier, including: actualResourceKeys)
-    let newContentMetadataItems = LocalContents(newContents.map { LocalMetadataItem(fileUrl: $0) })
+    var newContentMetadataItems = LocalContents()
+    newContents.forEach { url in
+      do {
+        let metadataItem = try LocalMetadataItem(fileUrl: url)
+        newContentMetadataItems.add(metadataItem)
+      } catch {
+        LOG(.error, "Failed to create LocalMetadataItem: \(error)")
+      }
+    }
 
     // When the contentMetadataItems is empty, it means that we are in the initial state.
     if contents.isEmpty {
