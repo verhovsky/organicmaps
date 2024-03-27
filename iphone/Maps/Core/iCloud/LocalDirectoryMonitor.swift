@@ -14,8 +14,8 @@ final class LocalDirectoryMonitor {
   }
 
   static let `default` = LocalDirectoryMonitor(directory: FileManager.default.bookmarksDirectoryUrl,
-                                            matching: kKMLTypeIdentifier,
-                                            requestedResourceKeys: [.nameKey])
+                                               matching: kKMLTypeIdentifier,
+                                               requestedResourceKeys: [.nameKey])
 
   private let typeIdentifier: String
   private let requestedResourceKeys: Set<URLResourceKey>
@@ -43,7 +43,7 @@ final class LocalDirectoryMonitor {
       state = .started(dirSource: source)
       return
     }
-    
+
     let directorySource = try LocalDirectoryMonitor.source(for: directory)
     directorySource.setEventHandler { [weak self] in
       self?.queueDidFire()
@@ -73,24 +73,23 @@ final class LocalDirectoryMonitor {
         throw error
       }
     }
-    let dirFD = open(directory.path, O_EVTONLY)
-    // TODO: somtimes it fails on start when app was reinstalled - investigate
-    guard dirFD >= 0 else {
+    let directoryFileDescrtiptor = open(directory.path, O_EVTONLY)
+    guard directoryFileDescrtiptor >= 0 else {
       let errorCode = errno
       throw NSError(domain: POSIXError.errorDomain, code: Int(errorCode), userInfo: nil)
     }
-    return DispatchSource.makeFileSystemObjectSource(fileDescriptor: dirFD, eventMask: [.write], queue: DispatchQueue.main)
+    return DispatchSource.makeFileSystemObjectSource(fileDescriptor: directoryFileDescrtiptor, eventMask: [.write], queue: DispatchQueue.main)
   }
 
   private func queueDidFire() {
     switch state {
     case .started(let directorySource):
-      let timer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: false) { [weak self] _ in
+      let timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: false) { [weak self] _ in
         self?.debounceTimerDidFire()
       }
       state = .debounce(dirSource: directorySource, timer: timer)
     case .debounce(_, let timer):
-      timer.fireDate = Date(timeIntervalSinceNow: 0.2)
+      timer.fireDate = Date(timeIntervalSinceNow: 0.1)
       // Stay in the `.debounce` state.
     case .stopped:
       // This can happen if the read source fired and enqueued a block on the
@@ -143,8 +142,8 @@ final class LocalDirectoryMonitor {
 fileprivate extension LocalDirectoryMonitor.State {
   var isRunning: Bool {
     switch self {
-    case .stopped:  return false
-    case .started:  return true
+    case .stopped: return false
+    case .started: return true
     case .debounce: return true
     }
   }
