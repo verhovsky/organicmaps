@@ -5,15 +5,6 @@ enum VoidResult {
 
 typealias VoidResultCompletionHandler = (VoidResult) -> Void
 
-enum CloudSynchronizationError: Error {
-  case iCloudIsNotAvailable
-  case containerNotFound
-  case failedToSaveFile
-  case failedToPrepareFile
-  case failedToOpenFile
-  case failedToUploadFile
-}
-
 let kKMLTypeIdentifier = "com.google.earth.kml"
 let kFileExtensionKML = "kml" // only the *.kml is supported
 let kDocumentsDirectoryName = "Documents"
@@ -91,20 +82,18 @@ private extension CloudStorageManger {
     cloudDirectoryMonitor.start { [weak self] result in
       guard let self else { return }
       switch result {
+      case .failure(let error):
+        // TODO: handle error
+        LOG(.debug, "CloudDirectoryMonitor start failed with error: \(error)")
+        self.stopSynchronization()
       case .success:
         do {
           try self.localDirectoryMonitor.start()
         } catch {
-          // TODO: если локальный монитор не работает то выкл
           // TODO: handle error
           LOG(.debug, "LocalDirectoryMonitor start failed with error: \(error)")
-          stopSynchronization()
+          self.stopSynchronization()
         }
-      case .failure(let error):
-        // TODO: синк не должен включаться если клауд не включен и контейнер не доступен;
-        // TODO: handle error
-        LOG(.debug, "CloudDirectoryMonitor start failed with error: \(error)")
-        stopSynchronization()
       }
     }
   }
@@ -112,7 +101,7 @@ private extension CloudStorageManger {
   private func stopSynchronization() {
     localDirectoryMonitor.stop()
     cloudDirectoryMonitor.stop()
-    synchronizationStateManager.resolveEvent(.resetState)
+    synchronizationStateManager.resetState()
   }
 }
 
@@ -152,40 +141,34 @@ private extension CloudStorageManger {
     events.forEach { [weak self] event in
       guard let self else { return }
       LOG(.debug, "Process event: \(event)")
+
+      var completionHandler: VoidResultCompletionHandler = { result in
+        switch result {
+        case .failure(let error):
+          self.handleError(error)
+        case .success:
+          self.reloadBookmarksOnTheMapIfNeeded()
+        }
+      }
+
       self.backgroundQueue.async {
         switch event {
-        case .createLocalItem(let cloudMetadataItem): self.writeToTheLocalContainer(cloudMetadataItem, completion: self.resultCompletionHandler())
-        case .updateLocalItem(let cloudMetadataItem): self.writeToTheLocalContainer(cloudMetadataItem, completion: self.resultCompletionHandler())
-        case .removeLocalItem(let cloudMetadataItem): self.removeFromTheLocalContainer(cloudMetadataItem, completion: self.resultCompletionHandler())
-        case .startDownloading(let cloudMetadataItem): self.startDownloading(cloudMetadataItem, completion: self.resultCompletionHandler())
-        case .resolveVersionsConflict(let cloudMetadataItem): self.resolveVersionsConflict(cloudMetadataItem, completion: self.resultCompletionHandler())
-        case .createCloudItem(let localMetadataItem): self.writeToTheCloudContainer(localMetadataItem, completion: self.resultCompletionHandler())
-        case .updateCloudItem(let localMetadataItem): self.writeToTheCloudContainer(localMetadataItem, completion: self.resultCompletionHandler())
-        case .removeCloudItem(let localMetadataItem): self.removeFromTheCloudContainer(localMetadataItem, completion: self.resultCompletionHandler())
-        case .stopSynchronization(let synchronizationStopReason): self.stopSynchronization()
-        case .resumeSynchronization: self.startSynchronization()
-        case .didReceiveError(let error):
-          // TODO: Handle Errors
-          break
+        case .createLocalItem(let cloudMetadataItem): self.writeToTheLocalContainer(cloudMetadataItem, completion: completionHandler)
+        case .updateLocalItem(let cloudMetadataItem): self.writeToTheLocalContainer(cloudMetadataItem, completion: completionHandler)
+        case .removeLocalItem(let cloudMetadataItem): self.removeFromTheLocalContainer(cloudMetadataItem, completion: completionHandler)
+        case .startDownloading(let cloudMetadataItem): self.startDownloading(cloudMetadataItem, completion: completionHandler)
+        case .resolveVersionsConflict(let cloudMetadataItem): self.resolveVersionsConflict(cloudMetadataItem, completion: completionHandler)
+        case .createCloudItem(let localMetadataItem): self.writeToTheCloudContainer(localMetadataItem, completion: completionHandler)
+        case .updateCloudItem(let localMetadataItem): self.writeToTheCloudContainer(localMetadataItem, completion: completionHandler)
+        case .removeCloudItem(let localMetadataItem): self.removeFromTheCloudContainer(localMetadataItem, completion: completionHandler)
+        case .didReceiveError(let error): self.handleError(error)
         }
       }
     }
+
     backgroundQueue.async {
       self.isSynchronizationInProcess = false
       self.cancelBackgroundTaskExtension()
-    }
-  }
-
-  func resultCompletionHandler() -> VoidResultCompletionHandler {
-    return { [weak self] result in
-      guard let self else { return }
-      switch result {
-      case .failure(let error):
-        LOG(.error, "iCloudStorageManger - completionHandler with error: \(error)")
-      case .success:
-        LOG(.debug, "iCloudStorageManger - completionHandler with success.")
-        self.reloadBookmarksOnTheMapIfNeeded()
-      }
     }
   }
 
@@ -230,7 +213,7 @@ private extension CloudStorageManger {
     }
 
     do {
-      // TODO: trash?
+      // TODO: trash items locally or hard remove?
       try FileManager.default.removeItem(at: targetLocalFileUrl)
       needsToReloadBookmarksOnTheMap = true
       LOG(.debug, "File \(cloudMetadataItem.fileName) is removed from the local directory successfully.")
@@ -242,7 +225,7 @@ private extension CloudStorageManger {
   }
 
   func writeToTheCloudContainer(_ localMetadataItem: LocalMetadataItem, completion: @escaping VoidResultCompletionHandler) {
-    cloudDirectoryMonitor.fetchUbiquityDirectoryUrl { [weak self] result in
+    cloudDirectoryMonitor.fetchUbiquityDocumentsDirectoryUrl { [weak self] result in
       guard let self else { return }
       switch result {
       case .failure(let error):
@@ -270,7 +253,7 @@ private extension CloudStorageManger {
   }
 
   func removeFromTheCloudContainer(_ localMetadataItem: LocalMetadataItem, completion: @escaping VoidResultCompletionHandler) {
-    cloudDirectoryMonitor.fetchUbiquityDirectoryUrl { [weak self] result in
+    cloudDirectoryMonitor.fetchUbiquityDocumentsDirectoryUrl { [weak self] result in
       guard let self else { return }
       switch result {
       case .failure(let error):
@@ -293,6 +276,25 @@ private extension CloudStorageManger {
           completion(.failure(coordinationError))
         }
       }
+    }
+  }
+
+  func handleError(_ error: Error) {
+    LOG(.error, "Synchronization error: \(error)")
+    if let synchronizationError = error as? SynchronizationError {
+      switch synchronizationError {
+      case .fileUnavailable:
+        // TODO: Handle file unavailable error
+        break
+      case .fileNotUploadedDueToQuota, .ubiquityServerNotAvailable, .iCloudIsNotAvailable, .containerNotFound:
+        stopSynchronization()
+        // TODO: should we try to restart sync earlier? Or use some timeout?
+      case .internal(let error):
+        // TODO: Handle internal error
+        break
+      }
+    } else {
+      // TODO: Handle regular errors
     }
   }
 

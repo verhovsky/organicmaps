@@ -10,6 +10,7 @@ protocol SynchronizationStateManager {
 
   @discardableResult
   func resolveEvent(_ event: IncomingEvent) -> [OutgoingEvent]
+  func resetState()
 }
 
 enum IncomingEvent {
@@ -17,20 +18,15 @@ enum IncomingEvent {
   case didFinishGatheringCloudContents(CloudContents)
   case didUpdateLocalContents(LocalContents)
   case didUpdateCloudContents(CloudContents)
-  case didReceiveError(Error)
-  case resetState // is used to reset the state of the state manager to initial
-}
-
-enum SynchronizationStopReason {
-  case userInitiated
-  case error(SynchronizationError)
 }
 
 enum SynchronizationError: Error {
-  case noInternetConnection
-  case outOfSpace
+  case fileUnavailable
+  case fileNotUploadedDueToQuota
+  case ubiquityServerNotAvailable
+  case iCloudIsNotAvailable
+  case containerNotFound
   case `internal`(Error)
-  // TODO: maybe add another cases
 }
 
 enum OutgoingEvent {
@@ -42,9 +38,7 @@ enum OutgoingEvent {
   case createCloudItem(LocalMetadataItem)
   case updateCloudItem(LocalMetadataItem)
   case removeCloudItem(LocalMetadataItem)
-  case stopSynchronization(SynchronizationStopReason)
-  case resumeSynchronization
-  case didReceiveError(Error)
+  case didReceiveError(SynchronizationError)
 }
 
 final class DefaultSynchronizationStateManager: SynchronizationStateManager {
@@ -68,13 +62,15 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
       outgoingEvents = resolveDidUpdateLocalContents(contents)
     case .didUpdateCloudContents(let contents):
       outgoingEvents = resolveDidUpdateCloudContents(contents)
-    case .didReceiveError(let error):
-      outgoingEvents = resolveError(error)
-    case .resetState:
-      resetState()
-      outgoingEvents = []
     }
     return outgoingEvents
+  }
+
+  func resetState() {
+    currentLocalContents.removeAll()
+    currentCloudContents.removeAll()
+    localContentsGatheringIsFinished = false
+    cloudContentGatheringIsFinished = false
   }
 
   // MARK: - Private
@@ -98,7 +94,8 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
   }
 
   private func resolveDidUpdateLocalContents(_ localContents: LocalContents) -> [OutgoingEvent] {
-    let itemsToCreateInCloud = localContents.reduce(into: LocalContents()) { partialResult, localItem in
+    let itemsToRemoveFromCloudContainer = currentLocalContents.filter { !localContents.contains($0.key) }
+    let itemsToCreateInCloudContainer = localContents.reduce(into: LocalContents()) { partialResult, localItem in
       if let cloudItemValue = currentCloudContents[localItem.key] {
         // Merge conflict: if cloud .trash contains item and it's last modification date is less than local item's last modification date than file should be recreated.
         if cloudItemValue.isInTrash, cloudItemValue.lastModificationDate < localItem.value.lastModificationDate {
@@ -108,8 +105,7 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
         partialResult[localItem.key] = localItem.value
       }
     }
-    let itemsToRemoveFromCloud = currentLocalContents.filter { !localContents.contains($0.key) }
-    let itemsToUpdateInCloud = localContents.reduce(into: LocalContents()) { result, localItem in
+    let itemsToUpdateInCloudContainer = localContents.reduce(into: LocalContents()) { result, localItem in
       if let cloudItemValue = self.currentCloudContents[localItem.key],
          !cloudItemValue.isInTrash,
          localItem.value.lastModificationDate > cloudItemValue.lastModificationDate {
@@ -118,54 +114,62 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
     }
 
     var outgoingEvents = [OutgoingEvent]()
-    itemsToCreateInCloud.forEach { outgoingEvents.append(.createCloudItem($0.value)) }
-    itemsToRemoveFromCloud.forEach { outgoingEvents.append(.removeCloudItem($0.value)) }
-    itemsToUpdateInCloud.forEach { outgoingEvents.append(.updateCloudItem($0.value)) }
+    itemsToRemoveFromCloudContainer.forEach { outgoingEvents.append(.removeCloudItem($0.value)) }
+    itemsToCreateInCloudContainer.forEach { outgoingEvents.append(.createCloudItem($0.value)) }
+    itemsToUpdateInCloudContainer.forEach { outgoingEvents.append(.updateCloudItem($0.value)) }
 
     currentLocalContents = localContents
     return outgoingEvents
   }
 
   private func resolveDidUpdateCloudContents(_ cloudContents: CloudContents) -> [OutgoingEvent] {
-    let cloudContentsWithUnresolvedConflicts = cloudContents.notInTrash.withUnresolvedConflicts(true)
-    let cloudContentsWithoutUnresolvedConflicts = cloudContents.notInTrash.withUnresolvedConflicts(false)
-    let itemsToCreateInLocal = cloudContentsWithoutUnresolvedConflicts.filter { !currentLocalContents.contains($0.key) }
-    let itemsToUpdateInLocal = cloudContentsWithoutUnresolvedConflicts.reduce(into: CloudContents()) { result, cloudItem in
-      if let localItemValue = self.currentLocalContents[cloudItem.key],
-         cloudItem.value.lastModificationDate > localItemValue.lastModificationDate {
-        result[cloudItem.key] = cloudItem.value
+    let errors = cloudContents.notInTrash.reduce(into: [SynchronizationError](), { partialResult, cloudItem in
+      if let downloadingError = cloudItem.value.downloadingError {
+        partialResult.append(SynchronizationError.fromError(downloadingError))
       }
-    }
-    let itemsToRemoveFromLocal = cloudContents.trashed.reduce(into: CloudContents()) { result, cloudItem in
+      if let uploadingError = cloudItem.value.uploadingError {
+        partialResult.append(SynchronizationError.fromError(uploadingError))
+      }
+    })
+
+    let itemsToRemoveFromLocalContainer = cloudContents.trashed.reduce(into: CloudContents()) { result, cloudItem in
       if let localItemValue = self.currentLocalContents[cloudItem.key],
          cloudItem.value.lastModificationDate >= localItemValue.lastModificationDate {
         result[cloudItem.key] = cloudItem.value
       }
     }
 
-    // TODO: Handle situation when file was removed from one storage and updated in another in offline
+    let cloudContentsWithUnresolvedConflicts = cloudContents.notInTrash.withUnresolvedConflicts(true)
+    let cloudContentsWithoutUnresolvedConflicts = cloudContents.notInTrash.withUnresolvedConflicts(false)
+    
+    let itemsToCreateInLocalContainer = cloudContentsWithoutUnresolvedConflicts.filter { !currentLocalContents.contains($0.key) }
+    let itemsToUpdateInLocalContainer = cloudContentsWithoutUnresolvedConflicts.reduce(into: CloudContents()) { result, cloudItem in
+      if let localItemValue = self.currentLocalContents[cloudItem.key],
+         cloudItem.value.lastModificationDate > localItemValue.lastModificationDate {
+        result[cloudItem.key] = cloudItem.value
+      }
+    }
+
     var outgoingEvents = [OutgoingEvent]()
+
+    // 1. Handle errors
+    errors.forEach { outgoingEvents.append(.didReceiveError($0)) }
+
+    // 2. Handle merge conflicts
     cloudContentsWithUnresolvedConflicts.forEach { outgoingEvents.append(.resolveVersionsConflict($0.value)) }
-    itemsToCreateInLocal.notDownloaded.forEach { outgoingEvents.append(.startDownloading($0.value)) }
-    itemsToUpdateInLocal.notDownloaded.forEach { outgoingEvents.append(.startDownloading($0.value)) }
-    itemsToCreateInLocal.downloaded.forEach { outgoingEvents.append(.createLocalItem($0.value)) }
-    itemsToUpdateInLocal.downloaded.forEach { outgoingEvents.append(.updateLocalItem($0.value)) }
-    itemsToRemoveFromLocal.forEach { outgoingEvents.append(.removeLocalItem($0.value)) }
+    // TODO: Handle situation when file was removed from one storage and updated in another in offline
+
+    // 3. Handle not downloaded items
+    itemsToCreateInLocalContainer.notDownloaded.forEach { outgoingEvents.append(.startDownloading($0.value)) }
+    itemsToUpdateInLocalContainer.notDownloaded.forEach { outgoingEvents.append(.startDownloading($0.value)) }
+
+    // 4. Handle downloaded items
+    itemsToRemoveFromLocalContainer.forEach { outgoingEvents.append(.removeLocalItem($0.value)) }
+    itemsToCreateInLocalContainer.downloaded.forEach { outgoingEvents.append(.createLocalItem($0.value)) }
+    itemsToUpdateInLocalContainer.downloaded.forEach { outgoingEvents.append(.updateLocalItem($0.value)) }
 
     currentCloudContents = cloudContents
     return outgoingEvents
-  }
-
-  private func resolveError(_ error: Error) -> [OutgoingEvent] {
-    // TODO: handle error to parse it to OutgoingEvent.stopSynchronization
-    return [.didReceiveError(error)]
-  }
-
-  private func resetState() {
-    currentLocalContents.removeAll()
-    currentCloudContents.removeAll()
-    localContentsGatheringIsFinished = false
-    cloudContentGatheringIsFinished = false
   }
 }
 
@@ -185,24 +189,44 @@ extension Dictionary where Key == MetadataItemName, Value: MetadataItem {
 }
 
 // MARK: - CloudMetadataItem Dictionary + Trash, Down
-extension Dictionary where Key == MetadataItemName, Value == CloudMetadataItem {
+private extension Dictionary where Key == MetadataItemName, Value == CloudMetadataItem {
   var trashed: Self {
-    return filter { $0.value.isInTrash }
+    filter { $0.value.isInTrash }
   }
 
   var notInTrash: Self {
-    return filter { !$0.value.isInTrash }
+    filter { !$0.value.isInTrash }
   }
 
   var downloaded: Self {
-    return filter { $0.value.isDownloaded }
+    filter { $0.value.isDownloaded }
   }
 
   var notDownloaded: Self {
-    return filter { !$0.value.isDownloaded }
+    filter { !$0.value.isDownloaded }
   }
 
   func withUnresolvedConflicts(_ hasUnresolvedConflicts: Bool) -> Self {
-    return filter { $0.value.hasUnresolvedConflicts == hasUnresolvedConflicts }
+    filter { $0.value.hasUnresolvedConflicts == hasUnresolvedConflicts }
+  }
+}
+
+// MARK: - SyncronizationError + FromError
+private extension SynchronizationError {
+  static func fromError(_ error: Error) -> SynchronizationError {
+    let nsError = error as NSError
+    switch nsError.code {
+      // NSURLUbiquitousItemDownloadingErrorKey contains an error with this code when the item has not been uploaded to iCloud by the other devices yet
+    case NSUbiquitousFileUnavailableError:
+      return .fileUnavailable
+      // NSURLUbiquitousItemUploadingErrorKey contains an error with this code when the item has not been uploaded to iCloud because it would make the account go over-quota
+    case NSUbiquitousFileNotUploadedDueToQuotaError:
+      return .fileNotUploadedDueToQuota
+      // NSURLUbiquitousItemDownloadingErrorKey and NSURLUbiquitousItemUploadingErrorKey contain an error with this code when connecting to the iCloud servers failed
+    case NSUbiquitousFileUbiquityServerNotAvailable:
+      return .ubiquityServerNotAvailable
+    default:
+      return .internal(error)
+    }
   }
 }

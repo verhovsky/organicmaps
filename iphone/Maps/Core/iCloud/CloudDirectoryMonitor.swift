@@ -1,9 +1,9 @@
-private let kUDCloudIdentityKey = "com.apple.organicmaps.UbiquityIdentityToken"
-
 protocol CloudDirectoryMonitorDelegate : AnyObject {
   func didFinishGathering(contents: CloudContents)
   func didUpdate(contents: CloudContents)
 }
+
+private let kUDCloudIdentityKey = "com.apple.organicmaps.UbiquityIdentityToken"
 
 final class CloudDirectoryMonitor: NSObject {
 
@@ -29,7 +29,7 @@ final class CloudDirectoryMonitor: NSObject {
 
     setupMetadataQuery()
     subscribeToCloudAvailabilityNotifications()
-    fetchUbiquityDirectoryUrl()
+    fetchUbiquityDocumentsDirectoryUrl()
   }
 
   // MARK: - Public
@@ -37,10 +37,10 @@ final class CloudDirectoryMonitor: NSObject {
 
   func start(completion: VoidResultCompletionHandler? = nil) {
     guard cloudIsAvailable() else {
-      completion?(.failure(CloudSynchronizationError.iCloudIsNotAvailable))
+      completion?(.failure(SynchronizationError.iCloudIsNotAvailable))
       return
     }
-    fetchUbiquityDirectoryUrl { [weak self] result in
+    fetchUbiquityDocumentsDirectoryUrl { [weak self] result in
       guard let self else { return }
       switch result {
       case .failure(let error):
@@ -64,7 +64,7 @@ final class CloudDirectoryMonitor: NSObject {
     metadataQuery.disableUpdates()
   }
 
-  func fetchUbiquityDirectoryUrl(completion: ((Result<URL, CloudSynchronizationError>) -> Void)? = nil) {
+  func fetchUbiquityDocumentsDirectoryUrl(completion: ((Result<URL, SynchronizationError>) -> Void)? = nil) {
     if let ubiquitousDocumentsDirectory {
       completion?(.success(ubiquitousDocumentsDirectory))
       return
