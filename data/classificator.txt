@@ -688,6 +688,7 @@ world  +
         pitch  -
         playground  -
         recreation_ground  -
+        resort  -
         sauna  -
         slipway  -
         sports_centre  -
@@ -1408,7 +1409,6 @@ world  +
         motel  -
         museum  -
         picnic_site  -
-        resort  -
         theme_park  -
         viewpoint  -
         wilderness_hut  -
