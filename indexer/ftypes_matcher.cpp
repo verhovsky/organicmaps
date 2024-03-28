@@ -599,6 +599,7 @@ IsHotelChecker::IsHotelChecker()
   {
     auto const hotelType = static_cast<Type>(i);
     auto const * const tag = GetHotelTypeTag(hotelType);
+    //FIXME: doesn't work for leisure-resort
     auto const type = c.GetTypeByPath({"tourism", tag});
 
     m_types.push_back(type);

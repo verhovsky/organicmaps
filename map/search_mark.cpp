@@ -175,7 +175,7 @@ private:
       {{"tourism", "guest_house"},   SearchMarkType::Hotel},
       {{"tourism", "hostel"},        SearchMarkType::Hotel},
       {{"tourism", "motel"},         SearchMarkType::Hotel},
-      {{"tourism", "resort"},        SearchMarkType::Hotel}
+      {{"leisure", "resort"},        SearchMarkType::Hotel}
     };
 
     m_searchMarkTypes.reserve(table.size());
