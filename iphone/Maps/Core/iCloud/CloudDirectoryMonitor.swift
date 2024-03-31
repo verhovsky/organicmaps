@@ -1,8 +1,10 @@
 protocol CloudDirectoryMonitorDelegate : AnyObject {
   func didFinishGathering(contents: CloudContents)
   func didUpdate(contents: CloudContents)
+  func didReceiveCloudMonitorError(_ error: Error)
 }
 
+private let kTrashDirectoryName = ".Trash"
 private let kUDCloudIdentityKey = "com.apple.organicmaps.UbiquityIdentityToken"
 
 final class CloudDirectoryMonitor: NSObject {
@@ -137,27 +139,69 @@ private extension CloudDirectoryMonitor {
 
   @objc func queryDidFinishGathering(_ notification: Notification) {
     guard cloudIsAvailable(), notification.object as? NSMetadataQuery === metadataQuery else { return }
-    let newContent = getContentFromMetadataQuery(metadataQuery)
-    delegate?.didFinishGathering(contents: newContent)
+    pause()
+    do {
+      let newContent = try getContentFromMetadataQuery(metadataQuery)
+      delegate?.didFinishGathering(contents: newContent)
+    } catch {
+      delegate?.didReceiveCloudMonitorError(error)
+    }
+    resume()
   }
 
   @objc func queryDidUpdate(_ notification: Notification) {
     guard cloudIsAvailable(), notification.object as? NSMetadataQuery === metadataQuery else { return }
-    let newContent = getContentFromMetadataQuery(metadataQuery)
-    delegate?.didUpdate(contents: newContent)
+    pause()
+    do {
+      let newContent = try getContentFromMetadataQuery(metadataQuery)
+      delegate?.didUpdate(contents: newContent)
+    } catch {
+      delegate?.didReceiveCloudMonitorError(error)
+    }
+    resume()
   }
 
-  private func getContentFromMetadataQuery(_ metadataQuery: NSMetadataQuery) -> CloudContents {
-    var content = CloudContents()
-    metadataQuery.enumerateResults { result, _, _ in
-      guard let metadataItem = result as? NSMetadataItem else { return }
+  private func getContentFromMetadataQuery(_ metadataQuery: NSMetadataQuery) throws -> CloudContents {
+    let trashDirectoryContents = try getTrashDirectoryContents()
+    let trashedCloudMetadataItems = CloudContents(trashDirectoryContents.compactMap { url in
       do {
-        let cloudMetadataItem = try CloudMetadataItem(metadataItem: metadataItem)
-        content.add(cloudMetadataItem)
+        var item = try CloudMetadataItem(fileUrl: url)
+        item.isInTrash = true
+        return item
       } catch {
-        LOG(.error, "Failed to create CloudMetadataItem: \(error)")
+        LOG(.error, "Failed to create CloudMetadataItem from url: \(url). Error: \(error)")
+        delegate?.didReceiveCloudMonitorError(error)
+        return nil
       }
+    })
+
+    guard let metadataItems = metadataQuery.results as? [NSMetadataItem] else {
+      let error = NSError(domain: "CloudDirectoryMonitor", code: 0, userInfo: [NSLocalizedDescriptionKey: "Failed to get metadata items from metadataQuery."])
+      throw SynchronizationError.internal(error)
     }
-    return content
+
+    // Get regular (non trashed) cloud content
+    let cloudMetadataItems = CloudContents(metadataItems.compactMap { item in
+      do {
+        let cloudMetadataItem = try CloudMetadataItem(metadataItem: item)
+        return cloudMetadataItem
+      } catch {
+        LOG(.error, "Failed to create CloudMetadataItem from metadataItem: \(item). Error: \(error)")
+        delegate?.didReceiveCloudMonitorError(error)
+        return nil
+      }
+    })
+    let mergedMetadataItems = cloudMetadataItems.merging(trashedCloudMetadataItems) { _, new in new }
+    return mergedMetadataItems
+  }
+
+  // Contents of the system's .Trash directory.
+  private func getTrashDirectoryContents() throws -> [URL] {
+    guard let trashDirectoryUrl = ubiquitousDocumentsDirectory?.appendingPathComponent(kTrashDirectoryName) else {
+      throw SynchronizationError.containerNotFound
+    }
+    return try FileManager.default.contentsOfDirectory(at: trashDirectoryUrl, 
+                                                       includingPropertiesForKeys: [.isDirectoryKey],
+                                                       options: [.skipsPackageDescendants, .skipsSubdirectoryDescendants])
   }
 }

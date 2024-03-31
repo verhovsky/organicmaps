@@ -1,6 +1,7 @@
 protocol LocalDirectoryMonitorDelegate : AnyObject {
   func didFinishGathering(contents: LocalContents)
   func didUpdate(contents: LocalContents)
+  func didReceiveLocalMonitorError(_ error: Error)
 }
 
 final class LocalDirectoryMonitor {
@@ -84,12 +85,12 @@ final class LocalDirectoryMonitor {
   private func queueDidFire() {
     switch state {
     case .started(let directorySource):
-      let timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: false) { [weak self] _ in
+      let timer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: false) { [weak self] _ in
         self?.debounceTimerDidFire()
       }
       state = .debounce(dirSource: directorySource, timer: timer)
     case .debounce(_, let timer):
-      timer.fireDate = Date(timeIntervalSinceNow: 0.1)
+      timer.fireDate = Date(timeIntervalSinceNow: 0.2)
       // Stay in the `.debounce` state.
     case .stopped:
       // This can happen if the read source fired and enqueued a block on the
@@ -113,21 +114,20 @@ final class LocalDirectoryMonitor {
   }
 
   private func debounceTimerDidFire() {
-    // TODO: add message to fatalError
-    guard case .debounce(let dirSource, let timer) = state else { fatalError("") }
+    guard case .debounce(let dirSource, let timer) = state else { fatalError("LocalDirectoryMonitor is in invalid state: \(self.state)") }
     timer.invalidate()
     state = .started(dirSource: dirSource)
 
     let newContents = LocalDirectoryMonitor.contents(of: directory, matching: typeIdentifier, including: actualResourceKeys)
-    var newContentMetadataItems = LocalContents()
-    newContents.forEach { url in
+    let newContentMetadataItems = LocalContents(newContents.compactMap { url in
       do {
         let metadataItem = try LocalMetadataItem(fileUrl: url)
-        newContentMetadataItems.add(metadataItem)
+        return metadataItem
       } catch {
-        LOG(.error, "Failed to create LocalMetadataItem: \(error)")
+        delegate?.didReceiveLocalMonitorError(error)
+        return nil
       }
-    }
+    })
 
     // When the contentMetadataItems is empty, it means that we are in the initial state.
     if contents.isEmpty {

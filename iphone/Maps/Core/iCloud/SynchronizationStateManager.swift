@@ -94,24 +94,9 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
   }
 
   private func resolveDidUpdateLocalContents(_ localContents: LocalContents) -> [OutgoingEvent] {
-    let itemsToRemoveFromCloudContainer = currentLocalContents.filter { !localContents.contains($0.key) }
-    let itemsToCreateInCloudContainer = localContents.reduce(into: LocalContents()) { partialResult, localItem in
-      if let cloudItemValue = currentCloudContents[localItem.key] {
-        // Merge conflict: if cloud .trash contains item and it's last modification date is less than local item's last modification date than file should be recreated.
-        if cloudItemValue.isInTrash, cloudItemValue.lastModificationDate < localItem.value.lastModificationDate {
-          partialResult[localItem.key] = localItem.value
-        }
-      } else {
-        partialResult[localItem.key] = localItem.value
-      }
-    }
-    let itemsToUpdateInCloudContainer = localContents.reduce(into: LocalContents()) { result, localItem in
-      if let cloudItemValue = self.currentCloudContents[localItem.key],
-         !cloudItemValue.isInTrash,
-         localItem.value.lastModificationDate > cloudItemValue.lastModificationDate {
-        result[localItem.key] = localItem.value
-      }
-    }
+    let itemsToRemoveFromCloudContainer = Self.getLocalItemsToRemoveFromCloudContainer(currentLocalContents: currentLocalContents, newLocalContents: localContents)
+    let itemsToCreateInCloudContainer = Self.getLocalItemsToCreateInLocalContainer(cloudContents: currentCloudContents, localContents: localContents)
+    let itemsToUpdateInCloudContainer = Self.getLocalItemsToUpdateInCloudContainer(cloudContents: currentCloudContents, localContents: localContents)
 
     var outgoingEvents = [OutgoingEvent]()
     itemsToRemoveFromCloudContainer.forEach { outgoingEvents.append(.removeCloudItem($0.value)) }
@@ -123,32 +108,11 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
   }
 
   private func resolveDidUpdateCloudContents(_ cloudContents: CloudContents) -> [OutgoingEvent] {
-    let errors = cloudContents.notInTrash.reduce(into: [SynchronizationError](), { partialResult, cloudItem in
-      if let downloadingError = cloudItem.value.downloadingError {
-        partialResult.append(SynchronizationError.fromError(downloadingError))
-      }
-      if let uploadingError = cloudItem.value.uploadingError {
-        partialResult.append(SynchronizationError.fromError(uploadingError))
-      }
-    })
-
-    let itemsToRemoveFromLocalContainer = cloudContents.trashed.reduce(into: CloudContents()) { result, cloudItem in
-      if let localItemValue = self.currentLocalContents[cloudItem.key],
-         cloudItem.value.lastModificationDate >= localItemValue.lastModificationDate {
-        result[cloudItem.key] = cloudItem.value
-      }
-    }
-
-    let cloudContentsWithUnresolvedConflicts = cloudContents.notInTrash.withUnresolvedConflicts(true)
-    let cloudContentsWithoutUnresolvedConflicts = cloudContents.notInTrash.withUnresolvedConflicts(false)
-    
-    let itemsToCreateInLocalContainer = cloudContentsWithoutUnresolvedConflicts.filter { !currentLocalContents.contains($0.key) }
-    let itemsToUpdateInLocalContainer = cloudContentsWithoutUnresolvedConflicts.reduce(into: CloudContents()) { result, cloudItem in
-      if let localItemValue = self.currentLocalContents[cloudItem.key],
-         cloudItem.value.lastModificationDate > localItemValue.lastModificationDate {
-        result[cloudItem.key] = cloudItem.value
-      }
-    }
+    let errors = Self.getCloudItemsWithErrors(cloudContents)
+    let itemsWithUnresolvedConflicts = Self.getCloudItemsToResolveConflicts(cloudContents: cloudContents)
+    let itemsToRemoveFromLocalContainer = Self.getCloudItemsToRemoveFromLocalContainer(cloudContents: cloudContents, localContents: currentLocalContents)
+    let itemsToCreateInLocalContainer = Self.getCloudItemsToCreateInLocalContainer(cloudContents: cloudContents, localContents: currentLocalContents)
+    let itemsToUpdateInLocalContainer = Self.getCloudItemsToUpdateInLocalContainer(cloudContents: cloudContents, localContents: currentLocalContents)
 
     var outgoingEvents = [OutgoingEvent]()
 
@@ -156,7 +120,7 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
     errors.forEach { outgoingEvents.append(.didReceiveError($0)) }
 
     // 2. Handle merge conflicts
-    cloudContentsWithUnresolvedConflicts.forEach { outgoingEvents.append(.resolveVersionsConflict($0.value)) }
+    itemsWithUnresolvedConflicts.forEach { outgoingEvents.append(.resolveVersionsConflict($0.value)) }
     // TODO: Handle situation when file was removed from one storage and updated in another in offline
 
     // 3. Handle not downloaded items
@@ -170,6 +134,71 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
 
     currentCloudContents = cloudContents
     return outgoingEvents
+  }
+
+  private static func getLocalItemsToRemoveFromCloudContainer(currentLocalContents: LocalContents, newLocalContents: LocalContents) -> LocalContents {
+    currentLocalContents.filter { !newLocalContents.contains($0.key) }
+  }
+
+  private static func getLocalItemsToCreateInLocalContainer(cloudContents: CloudContents, localContents: LocalContents) -> LocalContents {
+    localContents.reduce(into: LocalContents()) { partialResult, localItem in
+      if let cloudItemValue = cloudContents[localItem.key] {
+        // Merge conflict: if cloud .trash contains item and it's last modification date is less than local item's last modification date than file should be recreated.
+        if cloudItemValue.isInTrash, cloudItemValue.lastModificationDate < localItem.value.lastModificationDate {
+          partialResult[localItem.key] = localItem.value
+        }
+      } else {
+        partialResult[localItem.key] = localItem.value
+      }
+    }
+  }
+
+  private static func getLocalItemsToUpdateInCloudContainer(cloudContents: CloudContents, localContents: LocalContents) -> LocalContents {
+    localContents.reduce(into: LocalContents()) { result, localItem in
+      if let cloudItemValue = cloudContents[localItem.key],
+         !cloudItemValue.isInTrash,
+         localItem.value.lastModificationDate > cloudItemValue.lastModificationDate {
+        result[localItem.key] = localItem.value
+      }
+    }
+  }
+
+
+  private static func getCloudItemsWithErrors(_ cloudContents: CloudContents) -> [SynchronizationError] {
+     cloudContents.notInTrash.reduce(into: [SynchronizationError](), { partialResult, cloudItem in
+      if let downloadingError = cloudItem.value.downloadingError {
+        partialResult.append(SynchronizationError.fromError(downloadingError))
+      }
+      if let uploadingError = cloudItem.value.uploadingError {
+        partialResult.append(SynchronizationError.fromError(uploadingError))
+      }
+    })
+  }
+
+  private static func getCloudItemsToRemoveFromLocalContainer(cloudContents: CloudContents, localContents: LocalContents) -> CloudContents {
+    cloudContents.trashed.reduce(into: CloudContents()) { result, cloudItem in
+      if let localItemValue = localContents[cloudItem.key],
+         cloudItem.value.lastModificationDate >= localItemValue.lastModificationDate {
+        result[cloudItem.key] = cloudItem.value
+      }
+    }
+  }
+
+  private static func getCloudItemsToCreateInLocalContainer(cloudContents: CloudContents, localContents: LocalContents) -> CloudContents {
+    cloudContents.notInTrash.withUnresolvedConflicts(false).filter { !localContents.contains($0.key) }
+  }
+
+  private static func getCloudItemsToUpdateInLocalContainer(cloudContents: CloudContents, localContents: LocalContents) -> CloudContents {
+    cloudContents.notInTrash.withUnresolvedConflicts(false).reduce(into: CloudContents()) { result, cloudItem in
+      if let localItemValue = localContents[cloudItem.key],
+         cloudItem.value.lastModificationDate > localItemValue.lastModificationDate {
+        result[cloudItem.key] = cloudItem.value
+      }
+    }
+  }
+
+  private static func getCloudItemsToResolveConflicts(cloudContents: CloudContents) -> CloudContents {
+    cloudContents.notInTrash.withUnresolvedConflicts(true)
   }
 }
 

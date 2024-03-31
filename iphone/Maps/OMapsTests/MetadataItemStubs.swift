@@ -25,7 +25,6 @@ extension CloudMetadataItem {
                                  fileSize: 0,
                                  contentType: "",
                                  isDownloaded: isDownloaded,
-                                 downloadAmount: 100.0,
                                  creationDate: Date().timeIntervalSince1970,
                                  lastModificationDate: lastModificationDate,
                                  isInTrash: isInTrash,

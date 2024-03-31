@@ -8,7 +8,6 @@ typealias VoidResultCompletionHandler = (VoidResult) -> Void
 let kKMLTypeIdentifier = "com.google.earth.kml"
 let kFileExtensionKML = "kml" // only the *.kml is supported
 let kDocumentsDirectoryName = "Documents"
-let kTrashDirectoryName = ".Trash"
 let kUDDidFinishInitialiCloudSynchronization = "kUDDidFinishInitialiCloudSynchronization"
 
 @objc @objcMembers final class CloudStorageManger: NSObject {
@@ -118,6 +117,10 @@ extension CloudStorageManger: LocalDirectoryMonitorDelegate {
     let events = synchronizationStateManager.resolveEvent(.didUpdateLocalContents(contents))
     processEvents(events)
   }
+
+  func didReceiveLocalMonitorError(_ error: Error) {
+    handleError(error)
+  }
 }
 
 // MARK: - iCloudStorageManger + CloudDirectoryMonitorDelegate
@@ -133,6 +136,10 @@ extension CloudStorageManger: CloudDirectoryMonitorDelegate {
     let events = synchronizationStateManager.resolveEvent(.didUpdateCloudContents(contents))
     processEvents(events)
   }
+
+  func didReceiveCloudMonitorError(_ error: Error) {
+    handleError(error)
+  }
 }
 
 // MARK: - Handle Read/Write Events
@@ -142,7 +149,7 @@ private extension CloudStorageManger {
       guard let self else { return }
       LOG(.debug, "Process event: \(event)")
 
-      var completionHandler: VoidResultCompletionHandler = { result in
+      let completionHandler: VoidResultCompletionHandler = { result in
         switch result {
         case .failure(let error):
           self.handleError(error)
