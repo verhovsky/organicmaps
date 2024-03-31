@@ -1,11 +1,12 @@
 #include "drape_frontend/text_layout.hpp"
+
 #include "drape_frontend/map_shape.hpp"
 #include "drape_frontend/visual_params.hpp"
 
 #include "drape/bidi.hpp"
 
 #include <algorithm>
-#include <iterator>
+#include <iterator>  // std::reverse_iterator
 #include <numeric>
 
 namespace df
