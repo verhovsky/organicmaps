@@ -83,7 +83,7 @@ public:
 
   std::shared_ptr<GlyphBitmap> const getGlyphBitmap(GlyphKey const & key);
   /// return control box(could be slightly larger than the precise bound box).
-  GlyphMetrics const getGlyphMetrics(GlyphKey const & key);
+  //GlyphMetrics const getGlyphMetrics(GlyphKey const & key);
 
   double getTextLength(double fontSize, std::string const & text);
 };

@@ -395,7 +395,7 @@ Glyph GlyphManager::GenerateGlyph(Glyph const & glyph, uint32_t sdfScale)
   if (glyph.m_image.m_data != nullptr)
   {
     Glyph resultGlyph;
-    resultGlyph.m_metrics = glyph.m_metrics;
+    //resultGlyph.m_metrics = glyph.m_metrics;
     resultGlyph.m_fontIndex = glyph.m_fontIndex;
     resultGlyph.m_code = glyph.m_code;
     resultGlyph.m_fixedSize = glyph.m_fixedSize;
@@ -469,7 +469,7 @@ Glyph const & GlyphManager::GetInvalidGlyph(int fixedSize) const
     s_glyph = m_impl->m_fonts[kFontId]->GetGlyph(kInvalidGlyphCode,
                                                  isSdf ? m_impl->m_baseGlyphHeight : fixedSize,
                                                  isSdf);
-    s_glyph.m_metrics.m_isValid = false;
+    //s_glyph.m_metrics.m_isValid = false;
     s_glyph.m_fontIndex = kFontId;
     s_glyph.m_code = kInvalidGlyphCode;
     s_inited = true;

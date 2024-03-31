@@ -75,8 +75,8 @@ Glyph Font::GetGlyph(strings::UniChar unicodePoint, uint32_t baseHeight, bool is
   FT_Glyph glyph;
   FREETYPE_CHECK(FT_Get_Glyph(m_fontFace->glyph, &glyph));
 
-  FT_BBox bbox;
-  FT_Glyph_Get_CBox(glyph, FT_GLYPH_BBOX_PIXELS, &bbox);
+  // FT_BBox bbox;
+  // FT_Glyph_Get_CBox(glyph, FT_GLYPH_BBOX_PIXELS, &bbox);
 
   FT_Bitmap const bitmap = m_fontFace->glyph->bitmap;
 
@@ -118,8 +118,8 @@ Glyph Font::GetGlyph(strings::UniChar unicodePoint, uint32_t baseHeight, bool is
   Glyph result;
   result.m_image = GlyphImage{imageWidth, imageHeight, bitmap.rows, bitmap.pitch, data};
 
-  result.m_metrics = GlyphMetrics{(glyph->advance.x >> 16) * scale, (glyph->advance.y >> 16) * scale,
-                                                bbox.xMin * scale, bbox.yMin * scale, true};
+  //result.m_metrics = GlyphMetrics{(glyph->advance.x >> 16) * scale, (glyph->advance.y >> 16) * scale,
+  //                                              bbox.xMin * scale, bbox.yMin * scale, true};
 
   result.m_code = unicodePoint;
   result.m_fixedSize = isSdf ? kDynamicGlyphSize : static_cast<int>(baseHeight);

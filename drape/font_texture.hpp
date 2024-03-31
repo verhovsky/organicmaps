@@ -58,17 +58,17 @@ private:
 class GlyphInfo : public Texture::ResourceInfo
 {
 public:
-  GlyphInfo(m2::RectF const & texRect, GlyphMetrics const & metrics)
+  GlyphInfo(m2::RectF const & texRect/*, GlyphMetrics const & metrics*/)
     : ResourceInfo(texRect)
-    , m_metrics(metrics)
+//    , m_metrics(metrics)
   {}
   ~GlyphInfo() override = default;
 
   Texture::ResourceType GetType() const override { return Texture::ResourceType::Glyph; }
-  GlyphMetrics const & GetMetrics() const { return m_metrics; }
+  //GlyphMetrics const & GetMetrics() const { return m_metrics; }
 
-private:
-  GlyphMetrics m_metrics;
+// private:
+//   GlyphMetrics m_metrics;
 };
 
 class GlyphIndex : public GlyphGenerator::Listener

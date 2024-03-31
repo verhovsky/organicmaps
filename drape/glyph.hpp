@@ -6,14 +6,14 @@
 
 namespace dp
 {
-struct GlyphMetrics
-{
-  float m_xAdvance;
-  float m_yAdvance;
-  float m_xOffset;
-  float m_yOffset;
-  bool m_isValid;
-};
+// struct GlyphMetrics
+// {
+//   float m_xAdvance;
+//   float m_yAdvance;
+//   float m_xOffset;
+//   float m_yOffset;
+//   bool m_isValid;
+// };
 
 struct GlyphImage
 {
@@ -42,7 +42,7 @@ struct GlyphImage
 
 struct Glyph
 {
-  GlyphMetrics m_metrics;
+//  GlyphMetrics m_metrics;
   GlyphImage m_image;
   int m_fontIndex;
   strings::UniChar m_code;

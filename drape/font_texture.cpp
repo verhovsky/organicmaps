@@ -162,12 +162,12 @@ ref_ptr<Texture::ResourceInfo> GlyphIndex::MapResource(GlyphKey const & key, boo
   if (!m_packer.PackGlyph(glyph.m_image.m_width, glyph.m_image.m_height, r))
   {
     glyph.m_image.Destroy();
-    if (glyph.m_metrics.m_isValid)
-    {
+    // if (glyph.m_metrics.m_isValid)
+    // {
       LOG(LWARNING, ("Glyphs packer could not pack a glyph", key.GetUnicodePoint(),
         "w =", glyph.m_image.m_width, "h =", glyph.m_image.m_height,
         "packerSize =", m_packer.GetSize()));
-    }
+    //}
 
     auto const invalidGlyph = m_mng->GetInvalidGlyph(key.GetFixedSize());
     auto invalidGlyphIndex = m_index.find(GlyphKey(invalidGlyph.m_code, key.GetFixedSize()));
@@ -182,7 +182,7 @@ ref_ptr<Texture::ResourceInfo> GlyphIndex::MapResource(GlyphKey const & key, boo
   generationData.m_glyph = glyph;
   generationData.m_rect = r;
 
-  auto res = m_index.emplace(key, GlyphInfo(m_packer.MapTextureCoords(r), glyph.m_metrics));
+  auto res = m_index.emplace(key, GlyphInfo(m_packer.MapTextureCoords(r)/*, glyph.m_metrics*/));
   ASSERT(res.second, ());
   return make_ref(&res.first->second);
 }

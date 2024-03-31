@@ -71,10 +71,10 @@ std::pair<Font*, int> GlyphCache::getCharIDX(GlyphKey const & key)
   return m_impl->getCharIDX(key);
 }
 
-GlyphMetrics const GlyphCache::getGlyphMetrics(GlyphKey const & key)
-{
-  return m_impl->getGlyphMetrics(key);
-}
+//GlyphMetrics const GlyphCache::getGlyphMetrics(GlyphKey const & key)
+//{
+//  return m_impl->getGlyphMetrics(key);
+//}
 
 std::shared_ptr<GlyphBitmap> const GlyphCache::getGlyphBitmap(GlyphKey const & key)
 {

@@ -165,29 +165,29 @@ m2::RectF const & TextureManager::BaseRegion::GetTexRect() const
   return m_info->GetTexRect();
 }
 
-float TextureManager::GlyphRegion::GetOffsetX() const
-{
-  ASSERT(m_info->GetType() == Texture::ResourceType::Glyph, ());
-  return ref_ptr<GlyphInfo>(m_info)->GetMetrics().m_xOffset;
-}
-
-float TextureManager::GlyphRegion::GetOffsetY() const
-{
-  ASSERT(m_info->GetType() == Texture::ResourceType::Glyph, ());
-  return ref_ptr<GlyphInfo>(m_info)->GetMetrics().m_yOffset;
-}
-
-float TextureManager::GlyphRegion::GetAdvanceX() const
-{
-  ASSERT(m_info->GetType() == Texture::ResourceType::Glyph, ());
-  return ref_ptr<GlyphInfo>(m_info)->GetMetrics().m_xAdvance;
-}
-
-float TextureManager::GlyphRegion::GetAdvanceY() const
-{
-  ASSERT(m_info->GetType() == Texture::ResourceType::Glyph, ());
-  return ref_ptr<GlyphInfo>(m_info)->GetMetrics().m_yAdvance;
-}
+// float TextureManager::GlyphRegion::GetOffsetX() const
+// {
+//   ASSERT(m_info->GetType() == Texture::ResourceType::Glyph, ());
+//   return ref_ptr<GlyphInfo>(m_info)->GetMetrics().m_xOffset;
+// }
+//
+// float TextureManager::GlyphRegion::GetOffsetY() const
+// {
+//   ASSERT(m_info->GetType() == Texture::ResourceType::Glyph, ());
+//   return ref_ptr<GlyphInfo>(m_info)->GetMetrics().m_yOffset;
+// }
+//
+// float TextureManager::GlyphRegion::GetAdvanceX() const
+// {
+//   ASSERT(m_info->GetType() == Texture::ResourceType::Glyph, ());
+//   return ref_ptr<GlyphInfo>(m_info)->GetMetrics().m_xAdvance;
+// }
+//
+// float TextureManager::GlyphRegion::GetAdvanceY() const
+// {
+//   ASSERT(m_info->GetType() == Texture::ResourceType::Glyph, ());
+//   return ref_ptr<GlyphInfo>(m_info)->GetMetrics().m_yAdvance;
+// }
 
 m2::PointU TextureManager::StippleRegion::GetMaskPixelSize() const
 {
@@ -313,7 +313,8 @@ void TextureManager::GetGlyphsRegions(ref_ptr<FontTexture> tex, strings::UniStri
   regions.reserve(resourcesInfo.size());
   for (auto const & info : resourcesInfo)
   {
-    GlyphRegion reg;
+    //GlyphRegion reg;
+    BaseRegion reg;
     reg.SetResourceInfo(info);
     reg.SetTexture(tex);
     ASSERT(reg.IsValid(), ());

@@ -52,14 +52,15 @@ public:
     uint32_t m_textureIndex = 0;
   };
 
-  class GlyphRegion : public BaseRegion
-  {
-  public:
-    float GetOffsetX() const;
-    float GetOffsetY() const;
-    float GetAdvanceX() const;
-    float GetAdvanceY() const;
-  };
+  using GlyphRegion = BaseRegion;
+  // class GlyphRegion : public BaseRegion
+  // {
+  // public:
+  //   float GetOffsetX() const;
+  //   float GetOffsetY() const;
+  //   float GetAdvanceX() const;
+  //   float GetAdvanceY() const;
+  // };
 
   class StippleRegion : public BaseRegion
   {
