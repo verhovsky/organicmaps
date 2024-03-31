@@ -175,6 +175,7 @@ private:
   void ReadChar()
   {
     // This is actually a huge macro, so is worth having in a separate function.
+    // TODO(AB): Replace by utf8::next16
     U16_NEXT(str_.data(), next_pos_, str_.length(), char_);
   }
   // The string we're iterating over.
@@ -226,24 +227,24 @@ hb_script_t ICUScriptToHarfbuzzScript(UScriptCode script)
   return hb_script_from_string(uscript_getShortName (script), -1);
 }
 
-TextRuns GetSingleTextLineRuns(std::u16string const & text)
+void GetSingleTextLineRuns(TextRuns & outRuns)
 {
-  ASSERT(!text.empty(), ());
-  ASSERT_EQUAL(text.find_first_of(u"\r\n"), std::string::npos, ("Processing only single lines of text"));
-  auto const textLength = static_cast<int32_t>(text.length());
+  ASSERT(!outRuns.text.empty(), ());
+  ASSERT_EQUAL(outRuns.text.find_first_of(u"\r\n"), std::string::npos, ("Processing only single lines of text"));
+  auto const textLength = static_cast<int32_t>(outRuns.text.length());
 
   TextRuns runs;
 
   // Deliberately not checking for nullptr.
   thread_local UBiDi * const bidi = ubidi_open();
   UErrorCode error = U_ZERO_ERROR;
-  ::ubidi_setPara(bidi, text.data(), textLength, UBIDI_DEFAULT_LTR, nullptr, &error);
+  ::ubidi_setPara(bidi, outRuns.text.data(), textLength, UBIDI_DEFAULT_LTR, nullptr, &error);
   if (U_FAILURE(error))
   {
     LOG(LERROR, ("ubidi_setPara failed with code", error));
-    auto const font = 0; // default font
-    runs.emplace_back(0, textLength, HB_SCRIPT_UNKNOWN, font);
-    return runs;
+    auto constexpr kDefaultFont = 0;
+    outRuns.runs.emplace_back(0, textLength, HB_SCRIPT_UNKNOWN, kDefaultFont);
+    return;
   }
 
   // Split the original text by logical runs, then each logical run by common
@@ -263,7 +264,7 @@ TextRuns GetSingleTextLineRuns(std::u16string const & text)
     {
       // Find the longest sequence of characters that have at least one common UScriptCode value.
       UScriptCode script = USCRIPT_INVALID_CODE;
-      size_t const scriptRunEnd = ScriptInterval(text, scriptRunStart, bidiRunEnd - scriptRunStart, &script) + scriptRunStart;
+      size_t const scriptRunEnd = ScriptInterval(outRuns.text, scriptRunStart, bidiRunEnd - scriptRunStart, &script) + scriptRunStart;
       ASSERT_LESS(scriptRunStart, base::asserted_cast<int32_t>(scriptRunEnd), ());
 
       // TODO(AB): May need to break on different unicode blocks, parentheses, and control chars (spaces).
@@ -298,7 +299,7 @@ TextRuns GetSingleTextLineRuns(std::u16string const & text)
 //        run.end = scriptRunEnd;
 //        run.script = ICUScriptToHarfbuzzScript(script);
 //        runs.push_back(run);
-      runs.emplace_back(scriptRunStart, base::asserted_cast<int32_t>(scriptRunEnd), ICUScriptToHarfbuzzScript(script), 0);
+      outRuns.runs.emplace_back(scriptRunStart, base::asserted_cast<int32_t>(scriptRunEnd), ICUScriptToHarfbuzzScript(script), 0);
 
         // Add the created run to the set of runs.
         //(*out_commonized_run_map)[font_params].push_back(run.get());
@@ -309,13 +310,12 @@ TextRuns GetSingleTextLineRuns(std::u16string const & text)
 //      }
 
       // Move to the next script sequence.
-        scriptRunStart = scriptRunEnd;
+        scriptRunStart = static_cast<int32_t>(scriptRunEnd);
     }
 
     // Move to the next direction sequence.
     bidiRunStart = bidiRunEnd;
   }
-  return runs;
 }
 
 hb_language_t OrganicMapsLanguageToHarfbuzzLanguage(int8_t lang)
@@ -341,7 +341,7 @@ int FloatToHarfBuzzUnits(float value)
 
 float HarfBuzzUnitsToFloat(int value) {
     static constexpr float kFloatToHbRatio = 1.0f / kHbUnit1;
-    return kFloatToHbRatio * value;
+    return kFloatToHbRatio * static_cast<float>(value);
 }
 
 typedef int Font;
@@ -380,11 +380,17 @@ hb_font_t* CreateHarfbuzzFont(Font const & font, int textSize, const FontRenderP
     return harfbuzz_font;
 }
 */
-/*
+
+void ShapeRunWithFont(FontParams const & fontParams, TextRun & outRun)
+{
+  // TODO(AB): set HB_BUFFER_FLAG_BOT for the beginning of rendered text.
+  hb_font_t * hbFont = GetHarfBuzzFont(fontParams);
+}
+
 void ShapeRunWithFont(std::u16string_view const & text, int runOffset, int runLength, UScriptCode script, bool isRtl, int8_t lang,
                       TextRunHarfBuzz::ShapeOutput* out) {
-  hb_font_t* harfbuzz_font = CreateHarfBuzzFont(in.skia_face, SkIntToScalar(in.font_size),
-                         in.render_params, in.subpixel_rendering_suppressed);
+  // hb_font_t* harfbuzz_font = CreateHarfBuzzFont(in.skia_face, SkIntToScalar(in.font_size),
+  //                        in.render_params, in.subpixel_rendering_suppressed);
 
   // Create a HarfBuzz buffer and add the string to be shaped. The HarfBuzz
   // buffer holds our text, run information to be used by the shaping engine,
@@ -460,20 +466,19 @@ void ShapeRunWithFont(std::u16string_view const & text, int runOffset, int runLe
   hb_font_destroy(harfbuzz_font);
 }
 
-*/
 
 
 
 
 
 
-
-/*
-void ShapeRuns(const std::u16string& text, int8_t lang, FontParams const & fontParams, TextRuns& runs)
+void ShapeRuns(FontParams const & fontParams, TextRuns& outRuns)
 {
-  for (auto & run : runs)
+  for (auto & run : outRuns.runs)
   {
     // TODO(AB): Cache runs.
+
+    ShapeRunWithFont(fontParams, run)
 
     internal::TextRunHarfBuzz::ShapeOutput output;
     ShapeRunWithFont(cache_key, &output);
@@ -488,16 +493,16 @@ void ShapeRuns(const std::u16string& text, int8_t lang, FontParams const & fontP
   }
   in_out_runs->swap(runs_with_missing_glyphs);
 }
-*/
+
 // Shapes a single line of text without newline \r or \n characters.
 // Any line breaking/trimming should be done by the caller.
-TextRuns ItemizeAndShapeText(std::string_view utf8, int8_t lang, FontParams const & fontParams)
+TextRuns ItemizeAndShapeText(std::string_view utf8, FontParams const & fontParams)
 {
   ASSERT(!utf8.empty(), ());
   // TODO(AB): Can unnecessary conversion/allocation be avoided?
-  auto const utf16 = strings::ToUtf16(utf8);
-  auto textRuns = GetSingleTextLineRuns(utf16);
+  TextRuns runs {strings::ToUtf16(utf8)};
+  GetSingleTextLineRuns(runs);
 
-  //ShapeRuns(utf16, lang, fontParams, textRuns);
+  ShapeRuns(fontParams, runs);
   return textRuns;
 }

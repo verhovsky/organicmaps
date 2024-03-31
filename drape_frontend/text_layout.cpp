@@ -4,6 +4,7 @@
 #include "drape_frontend/visual_params.hpp"
 
 #include "drape/bidi.hpp"
+#include "drape/harfbuzz_shape.hpp"
 
 #include <algorithm>
 #include <iterator>  // std::reverse_iterator
