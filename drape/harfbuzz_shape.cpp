@@ -298,7 +298,8 @@ void GetSingleTextLineRuns(TextRuns & runs)
 //        run.end = scriptRunEnd;
 //        run.script = ICUScriptToHarfbuzzScript(script);
 //        runs.push_back(run);
-        runs.runs.emplace_back(std::u16string_view{text.data() + scriptRunStart, scriptRunEnd - scriptRunStart}, ICUScriptToHarfbuzzScript(script), 0);
+        runs.runs.emplace_back(std::u16string_view{text.data() + scriptRunStart, scriptRunEnd - scriptRunStart},
+            ICUScriptToHarfbuzzScript(script), 0);
 
         // Add the created run to the set of runs.
         //(*out_commonized_run_map)[font_params].push_back(run.get());
@@ -380,10 +381,16 @@ hb_font_t* CreateHarfbuzzFont(Font const & font, int textSize, const FontRenderP
 }
 */
 
-void ShapeRunWithFont(FontParams const & fontParams, TextRun & outRun)
+void ShapeRunWithFont(FontParams const & fontParams, TextRun & run)
 {
   // TODO(AB): set HB_BUFFER_FLAG_BOT for the beginning of rendered text.
-  hb_font_t * hbFont = GetHarfBuzzFont(fontParams);
+
+  // In the current Drape implementation, each Unicode character is mapped to one font.
+  hb_font_t * hbFont = dp::GlyphManager::GetFontIndex(run.run.front());
+  ASSERT(std::all_of(run.run.begin(), run.run.end(), [&](auto c) { return dp::GlyphManager::GetFontIndex(c) == hbFont; }),
+      ("Not all characters of the string", run.run, "are using the same font"));
+
+
 }
 
 void ShapeRunWithFont(std::u16string_view const & text, int runOffset, int runLength, UScriptCode script, bool isRtl, int8_t lang,
