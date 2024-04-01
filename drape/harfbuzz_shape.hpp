@@ -1,6 +1,6 @@
 #pragma once
 
-// #include "base/buffer_vector.hpp"
+//#include "base/buffer_vector.hpp"
 
 #include <vector>
 
@@ -15,11 +15,11 @@ struct FontParams {
 
 struct TextRun
 {
-  int32_t start, end;
+  std::u16string_view run;
   hb_script_t script;
   int font;
-  //TextRun() = default;
-  TextRun(int32_t start, int32_t end, hb_script_t script, int font) : start(start), end(end), script(script), font(font) {}
+  // TextRun() = default;
+  TextRun(std::u16string_view run, hb_script_t script, int font) : run(run), script(script), font(font) {}
 };
 
 struct TextRuns

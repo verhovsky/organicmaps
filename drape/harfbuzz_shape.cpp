@@ -227,23 +227,22 @@ hb_script_t ICUScriptToHarfbuzzScript(UScriptCode script)
   return hb_script_from_string(uscript_getShortName (script), -1);
 }
 
-void GetSingleTextLineRuns(TextRuns & outRuns)
+void GetSingleTextLineRuns(TextRuns & runs)
 {
-  ASSERT(!outRuns.text.empty(), ());
-  ASSERT_EQUAL(outRuns.text.find_first_of(u"\r\n"), std::string::npos, ("Processing only single lines of text"));
-  auto const textLength = static_cast<int32_t>(outRuns.text.length());
-
-  TextRuns runs;
+  auto const & text = runs.text;
+  ASSERT(!text.empty(), ());
+  ASSERT_EQUAL(text.find_first_of(u"\r\n"), std::string::npos, ("Processing only single lines of text"));
+  auto const textLength = static_cast<int32_t>(text.length());
 
   // Deliberately not checking for nullptr.
   thread_local UBiDi * const bidi = ubidi_open();
   UErrorCode error = U_ZERO_ERROR;
-  ::ubidi_setPara(bidi, outRuns.text.data(), textLength, UBIDI_DEFAULT_LTR, nullptr, &error);
+  ::ubidi_setPara(bidi, text.data(), textLength, UBIDI_DEFAULT_LTR, nullptr, &error);
   if (U_FAILURE(error))
   {
     LOG(LERROR, ("ubidi_setPara failed with code", error));
-    auto constexpr kDefaultFont = 0;
-    outRuns.runs.emplace_back(0, textLength, HB_SCRIPT_UNKNOWN, kDefaultFont);
+    auto const font = 0; // default font
+    runs.runs.emplace_back(text, HB_SCRIPT_UNKNOWN, font);
     return;
   }
 
@@ -264,7 +263,7 @@ void GetSingleTextLineRuns(TextRuns & outRuns)
     {
       // Find the longest sequence of characters that have at least one common UScriptCode value.
       UScriptCode script = USCRIPT_INVALID_CODE;
-      size_t const scriptRunEnd = ScriptInterval(outRuns.text, scriptRunStart, bidiRunEnd - scriptRunStart, &script) + scriptRunStart;
+      size_t const scriptRunEnd = ScriptInterval(runs.text, scriptRunStart, bidiRunEnd - scriptRunStart, &script) + scriptRunStart;
       ASSERT_LESS(scriptRunStart, base::asserted_cast<int32_t>(scriptRunEnd), ());
 
       // TODO(AB): May need to break on different unicode blocks, parentheses, and control chars (spaces).
@@ -299,7 +298,7 @@ void GetSingleTextLineRuns(TextRuns & outRuns)
 //        run.end = scriptRunEnd;
 //        run.script = ICUScriptToHarfbuzzScript(script);
 //        runs.push_back(run);
-      outRuns.runs.emplace_back(scriptRunStart, base::asserted_cast<int32_t>(scriptRunEnd), ICUScriptToHarfbuzzScript(script), 0);
+        runs.runs.emplace_back(std::u16string_view{text.data() + scriptRunStart, scriptRunEnd - scriptRunStart}, ICUScriptToHarfbuzzScript(script), 0);
 
         // Add the created run to the set of runs.
         //(*out_commonized_run_map)[font_params].push_back(run.get());
@@ -500,9 +499,9 @@ TextRuns ItemizeAndShapeText(std::string_view utf8, FontParams const & fontParam
 {
   ASSERT(!utf8.empty(), ());
   // TODO(AB): Can unnecessary conversion/allocation be avoided?
-  TextRuns runs {strings::ToUtf16(utf8)};
-  GetSingleTextLineRuns(runs);
+  TextRuns textRuns {strings::ToUtf16(utf8), {}};
+  GetSingleTextLineRuns(textRuns);
 
-  ShapeRuns(fontParams, runs);
+  ShapeRuns(fontParams, textRuns);
   return textRuns;
 }

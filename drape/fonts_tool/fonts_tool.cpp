@@ -59,19 +59,11 @@ int main(int argc, char** argv)
       strings::Trim(line);
       if (line.empty()) continue;
 
-      auto const runs = ItemizeAndShapeText(line, 0, FontParams{});
-      std::cout << line << " (runs=" << runs.size() << ")" << "\n";
-      //size_t pos = 0;
-//      for (size_t i = 0; i < runs.size(); ++i)
-      {
-        // auto const & run = runs[i];
-        // std::cout << run.start << "-" << run.end << " ";
-        // while (pos++ < run.end)
-        // {
-        //   std::cou9opp[t << i + 1;
-        // }
-      }
-      std::cout << "\n";
+      auto const runs = ItemizeAndShapeText(line, FontParams{});
+      std::cout << line << " (runs=" << runs.runs.size() << ")" << "\n";
+      // for (const auto & run : runs.runs)
+      //   std::cout << DebugPrint(run.run) << " ";
+      // std::cout << "\n";
     }
   }
 
