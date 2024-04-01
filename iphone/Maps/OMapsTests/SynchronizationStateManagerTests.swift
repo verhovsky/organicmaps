@@ -545,9 +545,9 @@ final class SynchronizationStateManagerTests: XCTestCase {
 
     XCTAssertEqual(outgoingEvents.count, 0)
 
-    cloudItem1.isInTrash = true
-    cloudItem2.isInTrash = true
-    cloudItem3.isInTrash = true
+    cloudItem1.isRemoved = true
+    cloudItem2.isRemoved = true
+    cloudItem3.isRemoved = true
 
     cloudItems = CloudContents([cloudItem1, cloudItem2, cloudItem3])
 

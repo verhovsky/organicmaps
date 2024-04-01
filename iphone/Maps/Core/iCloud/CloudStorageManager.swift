@@ -293,9 +293,11 @@ private extension CloudStorageManger {
       case .fileUnavailable:
         // TODO: Handle file unavailable error
         break
-      case .fileNotUploadedDueToQuota, .ubiquityServerNotAvailable, .iCloudIsNotAvailable, .containerNotFound:
+      case .fileNotUploadedDueToQuota, .iCloudIsNotAvailable, .containerNotFound:
         stopSynchronization()
         // TODO: should we try to restart sync earlier? Or use some timeout?
+      case .ubiquityServerNotAvailable:
+        break
       case .internal(let error):
         // TODO: Handle internal error
         break

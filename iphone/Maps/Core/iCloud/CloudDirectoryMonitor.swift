@@ -138,65 +138,90 @@ private extension CloudDirectoryMonitor {
   }
 
   @objc func queryDidFinishGathering(_ notification: Notification) {
-    guard cloudIsAvailable(), notification.object as? NSMetadataQuery === metadataQuery else { return }
+    guard cloudIsAvailable(), notification.object as? NSMetadataQuery === metadataQuery, let metadataItems = metadataQuery.results as? [NSMetadataItem] else { return }
     pause()
-    do {
-      let newContent = try getContentFromMetadataQuery(metadataQuery)
-      delegate?.didFinishGathering(contents: newContent)
-    } catch {
-      delegate?.didReceiveCloudMonitorError(error)
-    }
+    let newContent = getContentsOnDidFinishGathering(metadataItems)
+    delegate?.didFinishGathering(contents: newContent)
     resume()
   }
 
   @objc func queryDidUpdate(_ notification: Notification) {
-    guard cloudIsAvailable(), notification.object as? NSMetadataQuery === metadataQuery else { return }
+    guard cloudIsAvailable(), notification.object as? NSMetadataQuery === metadataQuery, let metadataItems = metadataQuery.results as? [NSMetadataItem] else { return }
     pause()
-    do {
-      let newContent = try getContentFromMetadataQuery(metadataQuery)
-      delegate?.didUpdate(contents: newContent)
-    } catch {
-      delegate?.didReceiveCloudMonitorError(error)
-    }
+    let newContent = getContentsOnDidUpdate(metadataItems, userInfo: notification.userInfo)
+    delegate?.didUpdate(contents: newContent)
     resume()
   }
 
-  private func getContentFromMetadataQuery(_ metadataQuery: NSMetadataQuery) throws -> CloudContents {
-    let trashDirectoryContents = try getTrashDirectoryContents()
-    let trashedCloudMetadataItems = CloudContents(trashDirectoryContents.compactMap { url in
-      do {
-        var item = try CloudMetadataItem(fileUrl: url)
-        item.isInTrash = true
-        return item
-      } catch {
-        LOG(.error, "Failed to create CloudMetadataItem from url: \(url). Error: \(error)")
-        delegate?.didReceiveCloudMonitorError(error)
-        return nil
-      }
-    })
+  // There are no ways to retrieve the content of iCloud's .Trash directory on macOS.
+  // When we get a new notification and retrieve the metadata from the object the actual list of items in iOS contains both current and deleted files (which is in .Trash/ directory now) but on macOS we only have absence of the file. So there are no way to get list of deleted items on macOS on didFinishGathering state.
+  // Due to didUpdate state we can get the list of deleted items on macOS from the userInfo property but cannot get their new url.
+  private func getContentsOnDidFinishGathering(_ metadataItems: [NSMetadataItem]) -> CloudContents {
+    do {
+      var removedItems = try getRemovedItemsFromTrash()
+      let removedCloudMetadataItems = CloudContents(removedItems.compactMap { url in
+        do {
+          var item = try CloudMetadataItem(fileUrl: url)
+          item.isRemoved = true
+          return item
+        } catch {
+          delegate?.didReceiveCloudMonitorError(error)
+          return nil
+        }
+      })
 
-    guard let metadataItems = metadataQuery.results as? [NSMetadataItem] else {
-      let error = NSError(domain: "CloudDirectoryMonitor", code: 0, userInfo: [NSLocalizedDescriptionKey: "Failed to get metadata items from metadataQuery."])
-      throw SynchronizationError.internal(error)
+      // Get regular (non trashed) cloud content
+      let cloudMetadataItems = CloudContents(metadataItems.compactMap { item in
+        do {
+          let cloudMetadataItem = try CloudMetadataItem(metadataItem: item)
+          return cloudMetadataItem
+        } catch {
+          delegate?.didReceiveCloudMonitorError(error)
+          return nil
+        }
+      })
+      let mergedMetadataItems = cloudMetadataItems.merging(removedCloudMetadataItems) { _, new in new }
+      return mergedMetadataItems
+    } catch {
+      delegate?.didReceiveCloudMonitorError(error)
+      return [:]
     }
+  }
 
-    // Get regular (non trashed) cloud content
+  private func getContentsOnDidUpdate(_ metadataItems: [NSMetadataItem], userInfo: [AnyHashable: Any]?) -> CloudContents {
+    let removedCloudMetadataItems = getRemovedItemsFromUserInfo(userInfo)
     let cloudMetadataItems = CloudContents(metadataItems.compactMap { item in
       do {
         let cloudMetadataItem = try CloudMetadataItem(metadataItem: item)
         return cloudMetadataItem
       } catch {
-        LOG(.error, "Failed to create CloudMetadataItem from metadataItem: \(item). Error: \(error)")
         delegate?.didReceiveCloudMonitorError(error)
         return nil
       }
     })
-    let mergedMetadataItems = cloudMetadataItems.merging(trashedCloudMetadataItems) { _, new in new }
+
+    let mergedMetadataItems = cloudMetadataItems.merging(removedCloudMetadataItems) { _, new in new }
     return mergedMetadataItems
   }
 
-  // Contents of the system's .Trash directory.
-  private func getTrashDirectoryContents() throws -> [URL] {
+  private func getRemovedItemsFromUserInfo(_ userInfo: [AnyHashable: Any]?) -> CloudContents {
+    guard let removedItems = userInfo?[NSMetadataQueryUpdateRemovedItemsKey] as? [NSMetadataItem] else { return [:] }
+    return CloudContents(removedItems.compactMap { metadataItem in
+      do {
+        var item = try CloudMetadataItem(metadataItem: metadataItem)
+        item.isRemoved = true
+        return item
+      } catch {
+        delegate?.didReceiveCloudMonitorError(error)
+        return nil
+      }
+    })
+  }
+
+  private func getRemovedItemsFromTrash() throws -> [URL] {
+    if #available(iOS 14.0, *), ProcessInfo.processInfo.isiOSAppOnMac {
+      return []
+    }
     guard let trashDirectoryUrl = ubiquitousDocumentsDirectory?.appendingPathComponent(kTrashDirectoryName) else {
       throw SynchronizationError.containerNotFound
     }

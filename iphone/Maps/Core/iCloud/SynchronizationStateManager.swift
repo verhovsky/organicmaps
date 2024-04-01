@@ -84,7 +84,7 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
     case (true, true):
       outgoingEvents = []
     case (true, false):
-      outgoingEvents = cloudContents.notInTrash.map { .createLocalItem($0.value) }
+      outgoingEvents = cloudContents.notRemoved.map { .createLocalItem($0.value) }
     case (false, true):
       outgoingEvents = localContents.map { .createCloudItem($0.value) }
     case (false, false):
@@ -108,19 +108,25 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
   }
 
   private func resolveDidUpdateCloudContents(_ cloudContents: CloudContents) -> [OutgoingEvent] {
+    var outgoingEvents = [OutgoingEvent]()
+
+    // 1. Handle errors
     let errors = Self.getCloudItemsWithErrors(cloudContents)
+    errors.forEach { outgoingEvents.append(.didReceiveError($0)) }
+
+    // 2. Handle merge conflicts
     let itemsWithUnresolvedConflicts = Self.getCloudItemsToResolveConflicts(cloudContents: cloudContents)
+    itemsWithUnresolvedConflicts.forEach { outgoingEvents.append(.resolveVersionsConflict($0.value)) }
+
+    guard itemsWithUnresolvedConflicts.isEmpty else {
+      return outgoingEvents
+    }
+
     let itemsToRemoveFromLocalContainer = Self.getCloudItemsToRemoveFromLocalContainer(cloudContents: cloudContents, localContents: currentLocalContents)
     let itemsToCreateInLocalContainer = Self.getCloudItemsToCreateInLocalContainer(cloudContents: cloudContents, localContents: currentLocalContents)
     let itemsToUpdateInLocalContainer = Self.getCloudItemsToUpdateInLocalContainer(cloudContents: cloudContents, localContents: currentLocalContents)
 
-    var outgoingEvents = [OutgoingEvent]()
-
-    // 1. Handle errors
-    errors.forEach { outgoingEvents.append(.didReceiveError($0)) }
-
-    // 2. Handle merge conflicts
-    itemsWithUnresolvedConflicts.forEach { outgoingEvents.append(.resolveVersionsConflict($0.value)) }
+//    itemsWithUnresolvedConflicts.forEach { outgoingEvents.append(.resolveVersionsConflict($0.value)) }
     // TODO: Handle situation when file was removed from one storage and updated in another in offline
 
     // 3. Handle not downloaded items
@@ -144,7 +150,7 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
     localContents.reduce(into: LocalContents()) { partialResult, localItem in
       if let cloudItemValue = cloudContents[localItem.key] {
         // Merge conflict: if cloud .trash contains item and it's last modification date is less than local item's last modification date than file should be recreated.
-        if cloudItemValue.isInTrash, cloudItemValue.lastModificationDate < localItem.value.lastModificationDate {
+        if cloudItemValue.isRemoved, cloudItemValue.lastModificationDate < localItem.value.lastModificationDate {
           partialResult[localItem.key] = localItem.value
         }
       } else {
@@ -156,7 +162,7 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
   private static func getLocalItemsToUpdateInCloudContainer(cloudContents: CloudContents, localContents: LocalContents) -> LocalContents {
     localContents.reduce(into: LocalContents()) { result, localItem in
       if let cloudItemValue = cloudContents[localItem.key],
-         !cloudItemValue.isInTrash,
+         !cloudItemValue.isRemoved,
          localItem.value.lastModificationDate > cloudItemValue.lastModificationDate {
         result[localItem.key] = localItem.value
       }
@@ -165,7 +171,7 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
 
 
   private static func getCloudItemsWithErrors(_ cloudContents: CloudContents) -> [SynchronizationError] {
-     cloudContents.notInTrash.reduce(into: [SynchronizationError](), { partialResult, cloudItem in
+     cloudContents.reduce(into: [SynchronizationError](), { partialResult, cloudItem in
       if let downloadingError = cloudItem.value.downloadingError {
         partialResult.append(SynchronizationError.fromError(downloadingError))
       }
@@ -176,7 +182,7 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
   }
 
   private static func getCloudItemsToRemoveFromLocalContainer(cloudContents: CloudContents, localContents: LocalContents) -> CloudContents {
-    cloudContents.trashed.reduce(into: CloudContents()) { result, cloudItem in
+    cloudContents.removed.reduce(into: CloudContents()) { result, cloudItem in
       if let localItemValue = localContents[cloudItem.key],
          cloudItem.value.lastModificationDate >= localItemValue.lastModificationDate {
         result[cloudItem.key] = cloudItem.value
@@ -185,11 +191,11 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
   }
 
   private static func getCloudItemsToCreateInLocalContainer(cloudContents: CloudContents, localContents: LocalContents) -> CloudContents {
-    cloudContents.notInTrash.withUnresolvedConflicts(false).filter { !localContents.contains($0.key) }
+    cloudContents.notRemoved.withUnresolvedConflicts(false).filter { !localContents.contains($0.key) }
   }
 
   private static func getCloudItemsToUpdateInLocalContainer(cloudContents: CloudContents, localContents: LocalContents) -> CloudContents {
-    cloudContents.notInTrash.withUnresolvedConflicts(false).reduce(into: CloudContents()) { result, cloudItem in
+    cloudContents.notRemoved.withUnresolvedConflicts(false).reduce(into: CloudContents()) { result, cloudItem in
       if let localItemValue = localContents[cloudItem.key],
          cloudItem.value.lastModificationDate > localItemValue.lastModificationDate {
         result[cloudItem.key] = cloudItem.value
@@ -198,7 +204,7 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
   }
 
   private static func getCloudItemsToResolveConflicts(cloudContents: CloudContents) -> CloudContents {
-    cloudContents.notInTrash.withUnresolvedConflicts(true)
+    cloudContents.notRemoved.withUnresolvedConflicts(true)
   }
 }
 
@@ -219,12 +225,12 @@ extension Dictionary where Key == MetadataItemName, Value: MetadataItem {
 
 // MARK: - CloudMetadataItem Dictionary + Trash, Down
 private extension Dictionary where Key == MetadataItemName, Value == CloudMetadataItem {
-  var trashed: Self {
-    filter { $0.value.isInTrash }
+  var removed: Self {
+    filter { $0.value.isRemoved }
   }
 
-  var notInTrash: Self {
-    filter { !$0.value.isInTrash }
+  var notRemoved: Self {
+    filter { !$0.value.isRemoved }
   }
 
   var downloaded: Self {
