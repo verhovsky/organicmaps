@@ -1941,6 +1941,7 @@ void Framework::DeactivateHotelSearchMark()
     return;
 
   m_searchMarks.SetSelected({});
+  // TODO(@pastk): use ftypes::IsHotelChecker::Instance() instead
   if (m_currentPlacePageInfo->GetHotelType().has_value())
   {
     auto const & featureId = m_currentPlacePageInfo->GetID();

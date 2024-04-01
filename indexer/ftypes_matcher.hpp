@@ -386,6 +386,7 @@ class IsHotelChecker : public BaseChecker
 public:
   enum class Type : uint8_t
   {
+    //TODO(@pastk): outdated, misses caravan_site, alpine/wilderness_hut
     Hotel,
     Apartment,
     CampSite,
@@ -403,8 +404,10 @@ public:
   static_assert(base::Underlying(Type::Count) <= std::numeric_limits<UnderlyingType>::digits,
                 "Too many types of hotels");
 
+  //TODO(@pastk): used privately only
   static char const * GetHotelTypeTag(Type type);
 
+  //TODO(@pastk): not used
   unsigned GetHotelTypesMask(FeatureType & ft) const;
 
   std::optional<Type> GetHotelType(FeatureType & ft) const;

@@ -207,6 +207,7 @@ public:
   void SetMercator(m2::PointD const & mercator);
   std::vector<std::string> GetRawTypes() const { return m_types.ToObjectNames(); }
 
+  //TODO(@pastk): used in Framework::DeactivateHotelSearchMark() only and not necessary there
   std::optional<ftypes::IsHotelChecker::Type> GetHotelType() const { return m_hotelType; }
 
   // void SetPopularity(uint8_t popularity) { m_popularity = popularity; }
