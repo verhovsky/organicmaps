@@ -5,45 +5,26 @@ enum VoidResult {
 
 typealias VoidResultCompletionHandler = (VoidResult) -> Void
 
-let kKMLTypeIdentifier = "com.google.earth.kml"
-let kFileExtensionKML = "kml" // only the *.kml is supported
 let kTrashDirectoryName = ".Trash"
-let kDocumentsDirectoryName = "Documents"
-let kUDDidFinishInitialiCloudSynchronization = "kUDDidFinishInitialiCloudSynchronization"
 
 @objc @objcMembers final class CloudStorageManger: NSObject {
 
   private let fileCoordinator = NSFileCoordinator()
-  private let localDirectoryMonitor: LocalDirectoryMonitor
-  private let cloudDirectoryMonitor: CloudDirectoryMonitor
+  private var localDirectoryMonitor: LocalDirectoryMonitor
+  private var cloudDirectoryMonitor: UbiquitousDirectoryMonitor
   private let synchronizationStateManager: SynchronizationStateManager
   private let bookmarksManager = BookmarksManager.shared()
   private let backgroundQueue = DispatchQueue(label: "iCloud.app.organicmaps.backgroundQueue", qos: .background)
-  private var isSynchronizationInProcess = false {
-    didSet {
-      LOG(.debug, "isSynchronizationInProcess: \(isSynchronizationInProcess)")
-    }
-  }
+  private var isSynchronizationInProcess = false
   private var backgroundTaskIdentifier: UIBackgroundTaskIdentifier = .invalid
-  private var isInitialSynchronizationFinished: Bool = true
   private var localDirectoryUrl: URL { localDirectoryMonitor.directory }
-
-  // TODO: Sync properies using ubiqitousUD plist
-//  {
-//    get {
-//      UserDefaults.standard.bool(forKey: kUDDidFinishInitialiCloudSynchronization)
-//    }
-//    set {
-//      UserDefaults.standard.set(newValue, forKey: kUDDidFinishInitialiCloudSynchronization)
-//    }
-//  }
   private var needsToReloadBookmarksOnTheMap = false
 
   static let shared = CloudStorageManger()
 
   // MARK: - Initialization
-  init(cloudDirectoryMonitor: CloudDirectoryMonitor = CloudDirectoryMonitor.default,
-       localDirectoryMonitor: LocalDirectoryMonitor = LocalDirectoryMonitor.default,
+  init(cloudDirectoryMonitor: iCloudDirectoryMonitor = iCloudDirectoryMonitor.default,
+       localDirectoryMonitor: DefaultLocalDirectoryMonitor = DefaultLocalDirectoryMonitor.default,
        synchronizationStateManager: SynchronizationStateManager = DefaultSynchronizationStateManager()) {
     self.cloudDirectoryMonitor = cloudDirectoryMonitor
     self.localDirectoryMonitor = localDirectoryMonitor
@@ -66,33 +47,39 @@ private extension CloudStorageManger {
   }
 
   @objc func appWillEnterForeground() {
-    cancelBackgroundTaskExtension()
+    cancelBackgroundExecution()
     startSynchronization()
   }
 
   @objc func appDidEnterBackground() {
     extendBackgroundExecutionIfNeeded { [weak self] in
-      self?.stopSynchronization()
-      self?.cancelBackgroundTaskExtension()
+      guard let self else { return }
+      self.pauseSynchronization()
+      self.cancelBackgroundExecution()
     }
   }
 
   private func startSynchronization() {
-    guard !cloudDirectoryMonitor.isStarted else { return }
+    guard !cloudDirectoryMonitor.isStarted else {
+      if cloudDirectoryMonitor.isPaused {
+        resumeSynchronization()
+      }
+      return
+    }
     cloudDirectoryMonitor.start { [weak self] result in
       guard let self else { return }
       switch result {
       case .failure(let error):
-        // TODO: handle error
-        LOG(.debug, "CloudDirectoryMonitor start failed with error: \(error)")
-        self.stopSynchronization()
+        self.handleError(error)
       case .success:
-        do {
-          try self.localDirectoryMonitor.start()
-        } catch {
-          // TODO: handle error
-          LOG(.debug, "LocalDirectoryMonitor start failed with error: \(error)")
-          self.stopSynchronization()
+        self.localDirectoryMonitor.start { result in
+          switch result {
+          case .failure(let error):
+            self.handleError(error)
+          case .success:
+            LOG(.debug, "Start synchronization")
+            break
+          }
         }
       }
     }
@@ -102,6 +89,16 @@ private extension CloudStorageManger {
     localDirectoryMonitor.stop()
     cloudDirectoryMonitor.stop()
     synchronizationStateManager.resetState()
+  }
+
+  private func pauseSynchronization() {
+    localDirectoryMonitor.pause()
+    cloudDirectoryMonitor.pause()
+  }
+
+  private func resumeSynchronization() {
+    localDirectoryMonitor.resume()
+    cloudDirectoryMonitor.resume()
   }
 }
 
@@ -125,7 +122,7 @@ extension CloudStorageManger: LocalDirectoryMonitorDelegate {
 }
 
 // MARK: - iCloudStorageManger + CloudDirectoryMonitorDelegate
-extension CloudStorageManger: CloudDirectoryMonitorDelegate {
+extension CloudStorageManger: UbiquitousDirectoryMonitorDelegate {
   func didFinishGathering(contents: CloudContents) {
     LOG(.debug, "CloudDirectoryMonitorDelegate - didFinishGathering")
     let events = synchronizationStateManager.resolveEvent(.didFinishGatheringCloudContents(contents))
@@ -176,7 +173,7 @@ private extension CloudStorageManger {
 
     backgroundQueue.async {
       self.isSynchronizationInProcess = false
-      self.cancelBackgroundTaskExtension()
+      self.cancelBackgroundExecution()
     }
   }
 
@@ -192,7 +189,7 @@ private extension CloudStorageManger {
 
   func writeToLocalContainer(_ cloudMetadataItem: CloudMetadataItem, completion: VoidResultCompletionHandler) {
     var coordinationError: NSError?
-    let targetLocalFileUrl = localDirectoryUrl.appendingPathComponent(cloudMetadataItem.fileName)
+    let targetLocalFileUrl = cloudMetadataItem.relatedLocalItemUrl(to: localDirectoryUrl)
     LOG(.debug, "File \(cloudMetadataItem.fileName) is downloaded to the local iCloud container. Start coordinating and writing file...")
     fileCoordinator.coordinate(readingItemAt: cloudMetadataItem.fileUrl, options: .withoutChanges, error: &coordinationError) { url in
       do {
@@ -212,10 +209,10 @@ private extension CloudStorageManger {
   }
 
   func removeFromTheLocalContainer(_ cloudMetadataItem: CloudMetadataItem, completion: VoidResultCompletionHandler) {
-    let targetLocalFileUrl = localDirectoryUrl.appendingPathComponent(cloudMetadataItem.fileName)
+    let targetLocalFileUrl = cloudMetadataItem.relatedLocalItemUrl(to: localDirectoryUrl)
 
     guard FileManager.default.fileExists(atPath: targetLocalFileUrl.path) else {
-      LOG(.debug, "File \(cloudMetadataItem.fileName) is not exist in the local directory.")
+      LOG(.debug, "File \(cloudMetadataItem.fileName) doesn't exist in the local directory.")
       completion(.success)
       return
     }
@@ -232,13 +229,13 @@ private extension CloudStorageManger {
   }
 
   func writeToCloudContainer(_ localMetadataItem: LocalMetadataItem, completion: @escaping VoidResultCompletionHandler) {
-    cloudDirectoryMonitor.fetchUbiquityDocumentsDirectoryUrl { [weak self] result in
+    cloudDirectoryMonitor.fetchUbiquityDirectoryUrl { [weak self] result in
       guard let self else { return }
       switch result {
       case .failure(let error):
         completion(.failure(error))
       case .success(let cloudDirectoryUrl):
-        let targetCloudFileUrl = cloudDirectoryUrl.appendingPathComponent(localMetadataItem.fileName)
+        let targetCloudFileUrl = localMetadataItem.relatedCloudItemUrl(to: cloudDirectoryUrl)
         var coordinationError: NSError?
 
         LOG(.debug, "Start coordinating and writing file \(localMetadataItem.fileName)...")
@@ -260,14 +257,14 @@ private extension CloudStorageManger {
   }
 
   func removeFromCloudContainer(_ localMetadataItem: LocalMetadataItem, completion: @escaping VoidResultCompletionHandler) {
-    cloudDirectoryMonitor.fetchUbiquityDocumentsDirectoryUrl { result in
+    cloudDirectoryMonitor.fetchUbiquityDirectoryUrl { result in
       switch result {
       case .failure(let error):
         completion(.failure(error))
       case .success(let cloudDirectoryUrl):
         LOG(.debug, "Start trashing file \(localMetadataItem.fileName)...")
         do {
-          let targetCloudFileUrl = cloudDirectoryUrl.appendingPathComponent(localMetadataItem.fileName)
+          let targetCloudFileUrl = localMetadataItem.relatedCloudItemUrl(to: cloudDirectoryUrl)
           try removeDuplicatedFileFromTrashDirectoryIfNeeded(cloudDirectoryUrl: cloudDirectoryUrl, fileName: localMetadataItem.fileName)
           try FileManager.default.trashItem(at: targetCloudFileUrl, resultingItemURL: nil)
           completion(.success)
@@ -351,8 +348,13 @@ private extension CloudStorageManger {
         return
       }
       do {
-        try FileManager.default.copyItem(at: readingURL, to: writingURL)
-        try latestVersionInConflict.replaceItem(at: readingURL)
+        // TODO: Check if current can be newer than latest
+//        if currentVersion.modificationDate! < latestVersionInConflict.modificationDate! {
+          try FileManager.default.copyItem(at: readingURL, to: writingURL)
+          try latestVersionInConflict.replaceItem(at: readingURL)
+//        } else {
+//          
+//        }
         try NSFileVersion.removeOtherVersionsOfItem(at: readingURL)
         needsToReloadBookmarksOnTheMap = true
         completion(.success)
@@ -379,7 +381,7 @@ private extension CloudStorageManger {
     }
   }
 
-  private static func generateNewFileUrl(for fileUrl: URL) -> URL {
+  static func generateNewFileUrl(for fileUrl: URL) -> URL {
     let baseName = fileUrl.deletingPathExtension().lastPathComponent
     let fileExtension = fileUrl.pathExtension
 
@@ -413,16 +415,19 @@ private extension CloudStorageManger {
 private extension CloudStorageManger {
   // Extends background execution time to finish uploading.
   func extendBackgroundExecutionIfNeeded(expirationHandler: (() -> Void)? = nil) {
-    guard isSynchronizationInProcess else { return }
+    guard isSynchronizationInProcess else {
+      expirationHandler?()
+      return
+    }
     LOG(.debug, "Begin background task execution...")
     backgroundTaskIdentifier = UIApplication.shared.beginBackgroundTask(withName: nil) { [weak self] in
       guard let self else { return }
       expirationHandler?()
-      self.cancelBackgroundTaskExtension()
+      self.cancelBackgroundExecution()
     }
   }
 
-  func cancelBackgroundTaskExtension() {
+  func cancelBackgroundExecution() {
     guard backgroundTaskIdentifier != .invalid else { return }
     LOG(.debug, "Cancel background task execution.")
     DispatchQueue.main.async { [weak self] in
@@ -430,17 +435,6 @@ private extension CloudStorageManger {
       UIApplication.shared.endBackgroundTask(self.backgroundTaskIdentifier)
       self.backgroundTaskIdentifier = UIBackgroundTaskIdentifier.invalid
     }
-  }
-}
-
-// MARK: - FileManager + Local Directories
-extension FileManager {
-  var documentsDirectoryUrl: URL {
-    urls(for: .documentDirectory, in: .userDomainMask).first!
-  }
-
-  var bookmarksDirectoryUrl: URL {
-    documentsDirectoryUrl.appendingPathComponent("bookmarks", isDirectory: true)
   }
 }
 

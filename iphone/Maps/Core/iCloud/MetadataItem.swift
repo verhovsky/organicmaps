@@ -116,10 +116,18 @@ extension CloudMetadataItem {
     self.downloadingError = resources.ubiquitousItemDownloadingError
     self.uploadingError = resources.ubiquitousItemUploadingError
   }
-}
 
-extension CloudMetadataItem {
   static func isInTrash(_ fileUrl: URL) -> Bool {
     fileUrl.pathComponents.contains(kTrashDirectoryName)
+  }
+
+  func relatedLocalItemUrl(to localContainer: URL) -> URL {
+    localContainer.appendingPathComponent(fileName)
+  }
+}
+
+extension LocalMetadataItem {
+  func relatedCloudItemUrl(to cloudContainer: URL) -> URL {
+    cloudContainer.appendingPathComponent(fileName)
   }
 }
