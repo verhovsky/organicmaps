@@ -221,7 +221,6 @@ private extension CloudStorageManger {
     }
 
     do {
-      // TODO: trash items locally or hard remove?
       try FileManager.default.removeItem(at: targetLocalFileUrl)
       needsToReloadBookmarksOnTheMap = true
       LOG(.debug, "File \(cloudMetadataItem.fileName) is removed from the local directory successfully.")
@@ -267,14 +266,32 @@ private extension CloudStorageManger {
         completion(.failure(error))
       case .success(let cloudDirectoryUrl):
         LOG(.debug, "Start trashing file \(localMetadataItem.fileName)...")
-        let targetCloudFileUrl = cloudDirectoryUrl.appendingPathComponent(localMetadataItem.fileName)
         do {
+          let targetCloudFileUrl = cloudDirectoryUrl.appendingPathComponent(localMetadataItem.fileName)
+          try removeDuplicatedFileFromTrashDirectoryIfNeeded(cloudDirectoryUrl: cloudDirectoryUrl, fileName: localMetadataItem.fileName)
           try FileManager.default.trashItem(at: targetCloudFileUrl, resultingItemURL: nil)
           completion(.success)
         } catch {
           completion(.failure(error))
         }
         return
+      }
+    }
+
+    // Remove duplicated file from iCloud's .Trash directory if needed.
+    // It's important to avoid the duplicating of names in the trash because we can't control the name of the trashed item.
+    func removeDuplicatedFileFromTrashDirectoryIfNeeded(cloudDirectoryUrl: URL, fileName: String) throws {
+      // There are no ways to retrieve the content of iCloud's .Trash directory on macOS.
+      if #available(iOS 14.0, *), ProcessInfo.processInfo.isiOSAppOnMac {
+        return
+      }
+      let trashDirectoryUrl = cloudDirectoryUrl.appendingPathComponent(kTrashDirectoryName, isDirectory: true)
+      let fileInTrashDirectoryUrl = trashDirectoryUrl.appendingPathComponent(fileName)
+      let trashDirectoryContent = try FileManager.default.contentsOfDirectory(at: trashDirectoryUrl,
+                                                                          includingPropertiesForKeys: [],
+                                                                          options: [.skipsPackageDescendants, .skipsSubdirectoryDescendants])
+      if trashDirectoryContent.contains(fileInTrashDirectoryUrl) {
+        try FileManager.default.removeItem(at: fileInTrashDirectoryUrl)
       }
     }
   }
