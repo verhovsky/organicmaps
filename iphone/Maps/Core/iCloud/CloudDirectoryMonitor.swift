@@ -4,7 +4,6 @@ protocol CloudDirectoryMonitorDelegate : AnyObject {
   func didReceiveCloudMonitorError(_ error: Error)
 }
 
-private let kTrashDirectoryName = ".Trash"
 private let kUDCloudIdentityKey = "com.apple.organicmaps.UbiquityIdentityToken"
 
 final class CloudDirectoryMonitor: NSObject {
@@ -96,7 +95,6 @@ private extension CloudDirectoryMonitor {
     do {
       let data = try NSKeyedArchiver.archivedData(withRootObject: cloudToken, requiringSecureCoding: true)
       UserDefaults.standard.set(data, forKey: kUDCloudIdentityKey)
-      LOG(.debug, "Cloud is available.")
       return true
     } catch {
       UserDefaults.standard.removeObject(forKey: kUDCloudIdentityKey)
@@ -127,20 +125,18 @@ private extension CloudDirectoryMonitor {
   }
 
   func startQuery() {
-    LOG(.info, "Start quering metadata.")
     guard !metadataQuery.isStarted else { return }
     metadataQuery.start()
   }
 
   func stopQuery() {
-    LOG(.info, "Stop quering metadata.")
     metadataQuery.stop()
   }
 
   @objc func queryDidFinishGathering(_ notification: Notification) {
     guard cloudIsAvailable(), notification.object as? NSMetadataQuery === metadataQuery, let metadataItems = metadataQuery.results as? [NSMetadataItem] else { return }
     pause()
-    let newContent = getContentsOnDidFinishGathering(metadataItems)
+    let newContent = getContents(metadataItems)
     delegate?.didFinishGathering(contents: newContent)
     resume()
   }
@@ -148,67 +144,38 @@ private extension CloudDirectoryMonitor {
   @objc func queryDidUpdate(_ notification: Notification) {
     guard cloudIsAvailable(), notification.object as? NSMetadataQuery === metadataQuery, let metadataItems = metadataQuery.results as? [NSMetadataItem] else { return }
     pause()
-    let newContent = getContentsOnDidUpdate(metadataItems, userInfo: notification.userInfo)
+    let newContent = getContents(metadataItems, userInfo: notification.userInfo)
     delegate?.didUpdate(contents: newContent)
     resume()
   }
 
-  // There are no ways to retrieve the content of iCloud's .Trash directory on macOS.
+  // There are no ways to retrieve the content of iCloud's .Trash directory on the macOS because it uses different file system and place trashed content in the /Users/<user_name>/.Trash which cannot be observed without access.
   // When we get a new notification and retrieve the metadata from the object the actual list of items in iOS contains both current and deleted files (which is in .Trash/ directory now) but on macOS we only have absence of the file. So there are no way to get list of deleted items on macOS on didFinishGathering state.
   // Due to didUpdate state we can get the list of deleted items on macOS from the userInfo property but cannot get their new url.
-  private func getContentsOnDidFinishGathering(_ metadataItems: [NSMetadataItem]) -> CloudContents {
-    do {
-      var removedItems = try getRemovedItemsFromTrash()
-      let removedCloudMetadataItems = CloudContents(removedItems.compactMap { url in
-        do {
-          var item = try CloudMetadataItem(fileUrl: url)
-          item.isRemoved = true
-          return item
-        } catch {
-          delegate?.didReceiveCloudMonitorError(error)
-          return nil
-        }
-      })
-
-      // Get regular (non trashed) cloud content
-      let cloudMetadataItems = CloudContents(metadataItems.compactMap { item in
-        do {
-          let cloudMetadataItem = try CloudMetadataItem(metadataItem: item)
-          return cloudMetadataItem
-        } catch {
-          delegate?.didReceiveCloudMonitorError(error)
-          return nil
-        }
-      })
-      let mergedMetadataItems = cloudMetadataItems.merging(removedCloudMetadataItems) { _, new in new }
-      return mergedMetadataItems
-    } catch {
-      delegate?.didReceiveCloudMonitorError(error)
-      return [:]
+  private func getContents(_ metadataItems: [NSMetadataItem], userInfo: [AnyHashable: Any]? = nil) -> CloudContents {
+    let removedCloudMetadataItems: CloudContents
+    if let userInfo {
+      removedCloudMetadataItems = getRemovedContentsFromUserInfo(userInfo)
+    } else {
+      removedCloudMetadataItems = getRemovedContentsFromTrashDirectory()
     }
-  }
-
-  private func getContentsOnDidUpdate(_ metadataItems: [NSMetadataItem], userInfo: [AnyHashable: Any]?) -> CloudContents {
-    let removedCloudMetadataItems = getRemovedItemsFromUserInfo(userInfo)
-    let cloudMetadataItems = CloudContents(metadataItems.compactMap { item in
+    var cloudMetadataItems = CloudContents(metadataItems.compactMap { item in
       do {
-        let cloudMetadataItem = try CloudMetadataItem(metadataItem: item)
-        return cloudMetadataItem
+        return try CloudMetadataItem(metadataItem: item)
       } catch {
         delegate?.didReceiveCloudMonitorError(error)
         return nil
       }
     })
-
-    let mergedMetadataItems = cloudMetadataItems.merging(removedCloudMetadataItems) { _, new in new }
-    return mergedMetadataItems
+    return mergedCloudContent(cloudMetadataItems, withRemovedCloudContent: removedCloudMetadataItems)
   }
 
-  private func getRemovedItemsFromUserInfo(_ userInfo: [AnyHashable: Any]?) -> CloudContents {
-    guard let removedItems = userInfo?[NSMetadataQueryUpdateRemovedItemsKey] as? [NSMetadataItem] else { return [:] }
+  private func getRemovedContentsFromUserInfo(_ userInfo: [AnyHashable: Any]) -> CloudContents {
+    guard let removedItems = userInfo[NSMetadataQueryUpdateRemovedItemsKey] as? [NSMetadataItem] else { return [:] }
     return CloudContents(removedItems.compactMap { metadataItem in
       do {
         var item = try CloudMetadataItem(metadataItem: metadataItem)
+        // on macOS deleted file will not be in the ./Trash directory, but it doesn't mean that it is not removed because it is placed in the NSMetadataQueryUpdateRemovedItems array.
         item.isRemoved = true
         return item
       } catch {
@@ -218,15 +185,40 @@ private extension CloudDirectoryMonitor {
     })
   }
 
-  private func getRemovedItemsFromTrash() throws -> [URL] {
+  private func getRemovedContentsFromTrashDirectory() -> CloudContents {
+    // There are no ways to retrieve the content of iCloud's .Trash directory on macOS.
     if #available(iOS 14.0, *), ProcessInfo.processInfo.isiOSAppOnMac {
-      return []
+      return [:]
     }
-    guard let trashDirectoryUrl = ubiquitousDocumentsDirectory?.appendingPathComponent(kTrashDirectoryName) else {
-      throw SynchronizationError.containerNotFound
+    // On iOS we can get the list of deleted items from the .Trash directory but only when iCloud is enabled.
+    guard let trashDirectoryUrl = ubiquitousDocumentsDirectory?.appendingPathComponent(kTrashDirectoryName),
+          let removedItems = try? FileManager.default.contentsOfDirectory(at: trashDirectoryUrl,
+                                                                          includingPropertiesForKeys: [.isDirectoryKey],
+                                                                          options: [.skipsPackageDescendants, .skipsSubdirectoryDescendants]) else {
+      return [:]
     }
-    return try FileManager.default.contentsOfDirectory(at: trashDirectoryUrl, 
-                                                       includingPropertiesForKeys: [.isDirectoryKey],
-                                                       options: [.skipsPackageDescendants, .skipsSubdirectoryDescendants])
+    let removedCloudMetadataItems = CloudContents(removedItems.compactMap { url in
+      do {
+        var item = try CloudMetadataItem(fileUrl: url)
+        item.isRemoved = true
+        return item
+      } catch {
+        delegate?.didReceiveCloudMonitorError(error)
+        return nil
+      }
+    })
+    return removedCloudMetadataItems
+  }
+
+  private func mergedCloudContent(_ cloudContent: CloudContents, withRemovedCloudContent removedCloudContent: CloudContents) -> CloudContents {
+    var cloudContent = cloudContent
+    removedCloudContent.forEach { removedItem in
+      if !cloudContent.contains(removedItem.value.fileName) {
+        cloudContent.add(removedItem.value)
+      } else {
+        cloudContent[removedItem.value.fileName]?.isRemoved = true
+      }
+    }
+    return cloudContent
   }
 }

@@ -88,7 +88,7 @@ extension CloudMetadataItem {
     self.isDownloaded = downloadStatus == NSMetadataUbiquitousItemDownloadingStatusCurrent
     self.creationDate = creationDate
     self.lastModificationDate = lastModificationDate
-    self.isRemoved = false
+    self.isRemoved = CloudMetadataItem.isInTrash(fileUrl)
     self.hasUnresolvedConflicts = hasUnresolvedConflicts
     self.downloadingError = metadataItem.value(forAttribute: NSMetadataUbiquitousItemDownloadingErrorKey) as? NSError
     self.uploadingError = metadataItem.value(forAttribute: NSMetadataUbiquitousItemUploadingErrorKey) as? NSError
@@ -111,25 +111,15 @@ extension CloudMetadataItem {
     self.isDownloaded = downloadStatus.rawValue == NSMetadataUbiquitousItemDownloadingStatusCurrent
     self.creationDate = creationDate
     self.lastModificationDate = lastModificationDate
-    self.isRemoved = false
+    self.isRemoved = CloudMetadataItem.isInTrash(fileUrl)
     self.hasUnresolvedConflicts = hasUnresolvedConflicts
     self.downloadingError = resources.ubiquitousItemDownloadingError
     self.uploadingError = resources.ubiquitousItemUploadingError
   }
 }
 
-//extension URL {
-//  func inTrashFolder() -> Bool {
-////    ["///Users/kirill/.Trash/List.kml", "///Users/kirill/.Trash/My Places.kml"].forEach({ string in
-////      do {
-////        let trashFolder = FileManager.default.urls(for: .trashDirectory, in: .userDomainMask).first!
-////        var relationShip = FileManager.URLRelationship.other
-////        try FileManager.default.getRelationship(&relationShip, ofDirectoryAt: trashFolder, toItemAt: URL(string: string)!)
-////        print(relationShip == .contains)
-////      } catch {
-////        return
-////      }
-////    })
-//    return false
-//  }
-//}
+extension CloudMetadataItem {
+  static func isInTrash(_ fileUrl: URL) -> Bool {
+    fileUrl.pathComponents.contains(kTrashDirectoryName)
+  }
+}

@@ -95,7 +95,7 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
 
   private func resolveDidUpdateLocalContents(_ localContents: LocalContents) -> [OutgoingEvent] {
     let itemsToRemoveFromCloudContainer = Self.getLocalItemsToRemoveFromCloudContainer(currentLocalContents: currentLocalContents, newLocalContents: localContents)
-    let itemsToCreateInCloudContainer = Self.getLocalItemsToCreateInLocalContainer(cloudContents: currentCloudContents, localContents: localContents)
+    let itemsToCreateInCloudContainer = Self.getLocalItemsToCreateInCloudContainer(cloudContents: currentCloudContents, localContents: localContents)
     let itemsToUpdateInCloudContainer = Self.getLocalItemsToUpdateInCloudContainer(cloudContents: currentCloudContents, localContents: localContents)
 
     var outgoingEvents = [OutgoingEvent]()
@@ -114,6 +114,7 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
     let errors = Self.getCloudItemsWithErrors(cloudContents)
     errors.forEach { outgoingEvents.append(.didReceiveError($0)) }
 
+    // TODO: Handle situation when file was removed from one storage and updated in another in offline
     // 2. Handle merge conflicts
     let itemsWithUnresolvedConflicts = Self.getCloudItemsToResolveConflicts(cloudContents: cloudContents)
     itemsWithUnresolvedConflicts.forEach { outgoingEvents.append(.resolveVersionsConflict($0.value)) }
@@ -125,9 +126,6 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
     let itemsToRemoveFromLocalContainer = Self.getCloudItemsToRemoveFromLocalContainer(cloudContents: cloudContents, localContents: currentLocalContents)
     let itemsToCreateInLocalContainer = Self.getCloudItemsToCreateInLocalContainer(cloudContents: cloudContents, localContents: currentLocalContents)
     let itemsToUpdateInLocalContainer = Self.getCloudItemsToUpdateInLocalContainer(cloudContents: cloudContents, localContents: currentLocalContents)
-
-//    itemsWithUnresolvedConflicts.forEach { outgoingEvents.append(.resolveVersionsConflict($0.value)) }
-    // TODO: Handle situation when file was removed from one storage and updated in another in offline
 
     // 3. Handle not downloaded items
     itemsToCreateInLocalContainer.notDownloaded.forEach { outgoingEvents.append(.startDownloading($0.value)) }
@@ -146,7 +144,7 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
     currentLocalContents.filter { !newLocalContents.contains($0.key) }
   }
 
-  private static func getLocalItemsToCreateInLocalContainer(cloudContents: CloudContents, localContents: LocalContents) -> LocalContents {
+  private static func getLocalItemsToCreateInCloudContainer(cloudContents: CloudContents, localContents: LocalContents) -> LocalContents {
     localContents.reduce(into: LocalContents()) { partialResult, localItem in
       if let cloudItemValue = cloudContents[localItem.key] {
         // Merge conflict: if cloud .trash contains item and it's last modification date is less than local item's last modification date than file should be recreated.
@@ -219,7 +217,9 @@ extension Dictionary where Key == MetadataItemName, Value: MetadataItem {
   }
 
   init(_ items: [Value]) {
-    self.init(uniqueKeysWithValues: items.map { ($0.fileName, $0) })
+    self.init(items.map { ($0.fileName, $0) }) { (first, last) in
+      first.lastModificationDate > last.lastModificationDate ? first : last
+    }
   }
 }
 
