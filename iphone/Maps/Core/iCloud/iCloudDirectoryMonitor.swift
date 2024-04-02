@@ -1,12 +1,19 @@
-protocol CloudDirectoryMonitorDelegate : AnyObject {
+protocol UbiquitousDirectoryMonitor: DirectoryMonitor {
+  var delegate: UbiquitousDirectoryMonitorDelegate? { get set }
+  func fetchUbiquityDirectoryUrl(completion: ((Result<URL, SynchronizationError>) -> Void)?)
+}
+
+protocol UbiquitousDirectoryMonitorDelegate : AnyObject {
   func didFinishGathering(contents: CloudContents)
   func didUpdate(contents: CloudContents)
   func didReceiveCloudMonitorError(_ error: Error)
 }
 
 private let kUDCloudIdentityKey = "com.apple.organicmaps.UbiquityIdentityToken"
+private let kDocumentsDirectoryName = "Documents"
+private let kFileExtensionKML = "kml" // only the .kml is supported
 
-final class CloudDirectoryMonitor: NSObject {
+final class iCloudDirectoryMonitor: NSObject, UbiquitousDirectoryMonitor {
 
   private static let sharedContainerIdentifier: String = {
     var identifier = "iCloud.app.organicmaps"
@@ -16,32 +23,37 @@ final class CloudDirectoryMonitor: NSObject {
     return identifier
   }()
 
-  static let `default` = CloudDirectoryMonitor(cloudContainerIdentifier: CloudDirectoryMonitor.sharedContainerIdentifier)
+  static let `default` = iCloudDirectoryMonitor(cloudContainerIdentifier: iCloudDirectoryMonitor.sharedContainerIdentifier)
 
   private let metadataQuery = NSMetadataQuery()
   private var containerIdentifier: String
   private var ubiquitousDocumentsDirectory: URL?
 
-  weak var delegate: CloudDirectoryMonitorDelegate?
+  // MARK: - Public properties
+  var isStarted: Bool {
+    LOG(.debug, "iCloudDirectoryMonitor isStarted \(metadataQuery.isStarted)")
+    return metadataQuery.isStarted
+  }
+  private(set) var isPaused: Bool = true { didSet { LOG(.debug, "iCloudDirectoryMonitor isPaused \(isPaused)") } }
+  weak var delegate: UbiquitousDirectoryMonitorDelegate?
 
-  init(cloudContainerIdentifier: String = CloudDirectoryMonitor.sharedContainerIdentifier) {
+  init(cloudContainerIdentifier: String = iCloudDirectoryMonitor.sharedContainerIdentifier) {
     self.containerIdentifier = cloudContainerIdentifier
     super.init()
 
     setupMetadataQuery()
     subscribeToCloudAvailabilityNotifications()
-    fetchUbiquityDocumentsDirectoryUrl()
+    fetchUbiquityDirectoryUrl()
   }
 
-  // MARK: - Public
-  var isStarted: Bool { return metadataQuery.isStarted }
 
+  // MARK: - Public methods
   func start(completion: VoidResultCompletionHandler? = nil) {
     guard cloudIsAvailable() else {
       completion?(.failure(SynchronizationError.iCloudIsNotAvailable))
       return
     }
-    fetchUbiquityDocumentsDirectoryUrl { [weak self] result in
+    fetchUbiquityDirectoryUrl { [weak self] result in
       guard let self else { return }
       switch result {
       case .failure(let error):
@@ -59,13 +71,15 @@ final class CloudDirectoryMonitor: NSObject {
 
   func resume() {
     metadataQuery.enableUpdates()
+    isPaused = false
   }
 
   func pause() {
     metadataQuery.disableUpdates()
+    isPaused = true
   }
 
-  func fetchUbiquityDocumentsDirectoryUrl(completion: ((Result<URL, SynchronizationError>) -> Void)? = nil) {
+  func fetchUbiquityDirectoryUrl(completion: ((Result<URL, SynchronizationError>) -> Void)? = nil) {
     if let ubiquitousDocumentsDirectory {
       completion?(.success(ubiquitousDocumentsDirectory))
       return
@@ -84,7 +98,7 @@ final class CloudDirectoryMonitor: NSObject {
 }
 
 // MARK: - Private
-private extension CloudDirectoryMonitor {
+private extension iCloudDirectoryMonitor {
   func cloudIsAvailable() -> Bool {
     let cloudToken = FileManager.default.ubiquityIdentityToken
     guard let cloudToken else {
@@ -127,10 +141,12 @@ private extension CloudDirectoryMonitor {
   func startQuery() {
     guard !metadataQuery.isStarted else { return }
     metadataQuery.start()
+    isPaused = false
   }
 
   func stopQuery() {
     metadataQuery.stop()
+    isPaused = true
   }
 
   @objc func queryDidFinishGathering(_ notification: Notification) {

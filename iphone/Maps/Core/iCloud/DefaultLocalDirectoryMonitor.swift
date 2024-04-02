@@ -1,10 +1,28 @@
+protocol DirectoryMonitor {
+  var isStarted: Bool { get }
+  var isPaused: Bool { get }
+
+  func start(completion: VoidResultCompletionHandler?)
+  func stop()
+  func pause()
+  func resume()
+}
+
+protocol LocalDirectoryMonitor: DirectoryMonitor {
+  var directory: URL { get }
+  var delegate: LocalDirectoryMonitorDelegate? { get set }
+}
+
 protocol LocalDirectoryMonitorDelegate : AnyObject {
   func didFinishGathering(contents: LocalContents)
   func didUpdate(contents: LocalContents)
   func didReceiveLocalMonitorError(_ error: Error)
 }
 
-final class LocalDirectoryMonitor {
+private let kBookmarksDirectoryName = "bookmarks"
+private let kKMLTypeIdentifier = "com.google.earth.kml" // only the .kml is supported
+
+final class DefaultLocalDirectoryMonitor: LocalDirectoryMonitor {
 
   typealias Delegate = LocalDirectoryMonitorDelegate
 
@@ -14,7 +32,7 @@ final class LocalDirectoryMonitor {
     case debounce(dirSource: DispatchSourceFileSystemObject, timer: Timer)
   }
 
-  static let `default` = LocalDirectoryMonitor(directory: FileManager.default.bookmarksDirectoryUrl,
+  static let `default` = DefaultLocalDirectoryMonitor(directory: FileManager.default.bookmarksDirectoryUrl,
                                                matching: kKMLTypeIdentifier,
                                                requestedResourceKeys: [.nameKey])
 
@@ -24,8 +42,18 @@ final class LocalDirectoryMonitor {
   private var source: DispatchSourceFileSystemObject?
   private var state: State = .stopped
   private(set) var contents = LocalContents()
-  let directory: URL
 
+  // MARK: - Public properties
+  let directory: URL
+  var isStarted: Bool {
+    if case .stopped = state {
+      LOG(.debug, "DefaultLocalDirectoryMonitor isStarted \(true)")
+      return true
+    }
+    LOG(.debug, "DefaultLocalDirectoryMonitor isStarted \(false)")
+    return false
+  }
+  private(set) var isPaused: Bool = true  { didSet { LOG(.debug, "DefaultLocalDirectoryMonitor isPaused \(isPaused)") } }
   weak var delegate: Delegate?
 
   init(directory: URL, matching typeIdentifier: String, requestedResourceKeys: Set<URLResourceKey>) {
@@ -35,8 +63,8 @@ final class LocalDirectoryMonitor {
     self.actualResourceKeys = [URLResourceKey](requestedResourceKeys.union([.typeIdentifierKey]))
   }
 
-  // MARK: - Public
-  func start() throws {
+  // MARK: - Public methods
+  func start(completion: VoidResultCompletionHandler? = nil) {
     guard case .stopped = state else { return }
 
     if let source {
@@ -45,24 +73,40 @@ final class LocalDirectoryMonitor {
       return
     }
 
-    let directorySource = try LocalDirectoryMonitor.source(for: directory)
-    directorySource.setEventHandler { [weak self] in
-      self?.queueDidFire()
-    }
-    directorySource.resume()
-    source = directorySource
+    do {
+      let directorySource = try DefaultLocalDirectoryMonitor.source(for: directory)
+      directorySource.setEventHandler { [weak self] in
+        self?.queueDidFire()
+      }
+      directorySource.resume()
+      source = directorySource
 
-    let nowTimer = Timer.scheduledTimer(withTimeInterval: 0.0, repeats: false) { [weak self] _ in
-      self?.debounceTimerDidFire()
-    }
+      let nowTimer = Timer.scheduledTimer(withTimeInterval: .zero, repeats: false) { [weak self] _ in
+        self?.debounceTimerDidFire()
+      }
 
-    state = .debounce(dirSource: directorySource, timer: nowTimer)
+      state = .debounce(dirSource: directorySource, timer: nowTimer)
+      completion?(.success)
+    } catch {
+      stop()
+      completion?(.failure(error))
+    }
   }
 
   func stop() {
-    source?.suspend()
+    pause()
     state = .stopped
     contents.removeAll()
+  }
+
+  func pause() {
+    source?.suspend()
+    isPaused = true
+  }
+
+  func resume() {
+    source?.resume()
+    isPaused = false
   }
 
   // MARK: - Private
@@ -118,7 +162,7 @@ final class LocalDirectoryMonitor {
     timer.invalidate()
     state = .started(dirSource: dirSource)
 
-    let newContents = LocalDirectoryMonitor.contents(of: directory, matching: typeIdentifier, including: actualResourceKeys)
+    let newContents = DefaultLocalDirectoryMonitor.contents(of: directory, matching: typeIdentifier, including: actualResourceKeys)
     let newContentMetadataItems = LocalContents(newContents.compactMap { url in
       do {
         let metadataItem = try LocalMetadataItem(fileUrl: url)
@@ -139,12 +183,19 @@ final class LocalDirectoryMonitor {
   }
 }
 
-fileprivate extension LocalDirectoryMonitor.State {
+fileprivate extension DefaultLocalDirectoryMonitor.State {
   var isRunning: Bool {
     switch self {
     case .stopped: return false
     case .started: return true
     case .debounce: return true
     }
+  }
+}
+
+// MARK: - FileManager + Local Directories
+private extension FileManager {
+  var bookmarksDirectoryUrl: URL {
+    urls(for: .documentDirectory, in: .userDomainMask).first!.appendingPathComponent(kBookmarksDirectoryName, isDirectory: true)
   }
 }

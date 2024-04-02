@@ -464,10 +464,10 @@
 		ED1080A72B791CFE0023F27E /* SocialMediaCollectionViewHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED1080A62B791CFE0023F27E /* SocialMediaCollectionViewHeader.swift */; };
 		ED1263AB2B6F99F900AD99F3 /* UIView+AddSeparator.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED1263AA2B6F99F900AD99F3 /* UIView+AddSeparator.swift */; };
 		ED3EAC202B03C88100220A4A /* BottomTabBarButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED3EAC1F2B03C88100220A4A /* BottomTabBarButton.swift */; };
-		ED94C1762BA4A20300DAF811 /* CloudDirectoryMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED94C16F2BA4A20300DAF811 /* CloudDirectoryMonitor.swift */; };
+		ED94C1762BA4A20300DAF811 /* iCloudDirectoryMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED94C16F2BA4A20300DAF811 /* iCloudDirectoryMonitor.swift */; };
 		ED94C1772BA4A20300DAF811 /* CloudStorageManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED94C1702BA4A20300DAF811 /* CloudStorageManager.swift */; };
 		ED94C1782BA4A20300DAF811 /* MetadataItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED94C1712BA4A20300DAF811 /* MetadataItem.swift */; };
-		ED94C1792BA4A20300DAF811 /* LocalDirectoryMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED94C1722BA4A20300DAF811 /* LocalDirectoryMonitor.swift */; };
+		ED94C1792BA4A20300DAF811 /* DefaultLocalDirectoryMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED94C1722BA4A20300DAF811 /* DefaultLocalDirectoryMonitor.swift */; };
 		ED9966802B94FBC20083CE55 /* ColorPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED99667D2B94FBC20083CE55 /* ColorPicker.swift */; };
 		EDB1ED6D2BAB17FB0062976A /* SynchronizationStateManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDB1ED6C2BAB17FB0062976A /* SynchronizationStateManagerTests.swift */; };
 		EDB1ED7E2BAC5F8A0062976A /* SynchronizationStateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDB1ED7D2BAC5F8A0062976A /* SynchronizationStateManager.swift */; };
@@ -1356,10 +1356,10 @@
 		ED3EAC1F2B03C88100220A4A /* BottomTabBarButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BottomTabBarButton.swift; sourceTree = "<group>"; };
 		ED48BBB817C2B1E2003E7E92 /* CircleView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CircleView.h; sourceTree = "<group>"; };
 		ED48BBB917C2B1E2003E7E92 /* CircleView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = CircleView.m; sourceTree = "<group>"; };
-		ED94C16F2BA4A20300DAF811 /* CloudDirectoryMonitor.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CloudDirectoryMonitor.swift; sourceTree = "<group>"; };
+		ED94C16F2BA4A20300DAF811 /* iCloudDirectoryMonitor.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = iCloudDirectoryMonitor.swift; sourceTree = "<group>"; };
 		ED94C1702BA4A20300DAF811 /* CloudStorageManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CloudStorageManager.swift; sourceTree = "<group>"; };
 		ED94C1712BA4A20300DAF811 /* MetadataItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MetadataItem.swift; sourceTree = "<group>"; };
-		ED94C1722BA4A20300DAF811 /* LocalDirectoryMonitor.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LocalDirectoryMonitor.swift; sourceTree = "<group>"; };
+		ED94C1722BA4A20300DAF811 /* DefaultLocalDirectoryMonitor.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DefaultLocalDirectoryMonitor.swift; sourceTree = "<group>"; };
 		ED99667D2B94FBC20083CE55 /* ColorPicker.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ColorPicker.swift; sourceTree = "<group>"; };
 		EDB1ED6A2BAB17FB0062976A /* OMapsTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = OMapsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		EDB1ED6C2BAB17FB0062976A /* SynchronizationStateManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SynchronizationStateManagerTests.swift; sourceTree = "<group>"; };
@@ -2987,8 +2987,8 @@
 			children = (
 				ED94C1712BA4A20300DAF811 /* MetadataItem.swift */,
 				ED94C1702BA4A20300DAF811 /* CloudStorageManager.swift */,
-				ED94C16F2BA4A20300DAF811 /* CloudDirectoryMonitor.swift */,
-				ED94C1722BA4A20300DAF811 /* LocalDirectoryMonitor.swift */,
+				ED94C16F2BA4A20300DAF811 /* iCloudDirectoryMonitor.swift */,
+				ED94C1722BA4A20300DAF811 /* DefaultLocalDirectoryMonitor.swift */,
 				EDB1ED7D2BAC5F8A0062976A /* SynchronizationStateManager.swift */,
 			);
 			path = iCloud;
@@ -4182,7 +4182,7 @@
 				3454D7D41E07F045004AF2AD /* UIImageView+Coloring.m in Sources */,
 				993DF11D23F6BDB100AC231A /* UIToolbarRenderer.swift in Sources */,
 				99A906E923F6F7030005872B /* WikiDescriptionViewController.swift in Sources */,
-				ED94C1792BA4A20300DAF811 /* LocalDirectoryMonitor.swift in Sources */,
+				ED94C1792BA4A20300DAF811 /* DefaultLocalDirectoryMonitor.swift in Sources */,
 				EDFDFB522B726F1A0013A44C /* ButtonsStackView.swift in Sources */,
 				993DF11023F6BDB100AC231A /* MWMButtonRenderer.swift in Sources */,
 				3463BA671DE81DB90082417F /* MWMTrafficButtonViewController.mm in Sources */,
@@ -4436,7 +4436,7 @@
 				674A7E301C0DB10B003D48E1 /* MWMMapWidgets.mm in Sources */,
 				34AB66291FC5AA330078E451 /* RouteManagerViewController.swift in Sources */,
 				3404754D1E081A4600C92850 /* MWMKeyboard.m in Sources */,
-				ED94C1762BA4A20300DAF811 /* CloudDirectoryMonitor.swift in Sources */,
+				ED94C1762BA4A20300DAF811 /* iCloudDirectoryMonitor.swift in Sources */,
 				EDE243E52B6D3F400057369B /* OSMView.swift in Sources */,
 				993DF10C23F6BDB100AC231A /* MWMTableViewCellRenderer.swift in Sources */,
 				3457C4261F680F1900028233 /* String+BoundingRect.swift in Sources */,
