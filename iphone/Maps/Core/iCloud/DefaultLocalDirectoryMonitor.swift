@@ -183,7 +183,7 @@ final class DefaultLocalDirectoryMonitor: LocalDirectoryMonitor {
   }
 }
 
-fileprivate extension DefaultLocalDirectoryMonitor.State {
+private extension DefaultLocalDirectoryMonitor.State {
   var isRunning: Bool {
     switch self {
     case .stopped: return false
@@ -193,7 +193,6 @@ fileprivate extension DefaultLocalDirectoryMonitor.State {
   }
 }
 
-// MARK: - FileManager + Local Directories
 private extension FileManager {
   var bookmarksDirectoryUrl: URL {
     urls(for: .documentDirectory, in: .userDomainMask).first!.appendingPathComponent(kBookmarksDirectoryName, isDirectory: true)
