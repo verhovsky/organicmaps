@@ -7,12 +7,14 @@ final class SynchronizationStateManagerTests: XCTestCase {
   var outgoingEvents: [OutgoingEvent] = []
 
   override func setUp() {
+    super.setUp()
     syncStateManager = DefaultSynchronizationStateManager(isInitialSynchronization: false)
   }
 
   override func tearDown() {
     syncStateManager = nil
     outgoingEvents.removeAll()
+    super.tearDown()
   }
   // MARK: - Test didFinishGathering without errors and on initial synchronization
   func testInitialSynchronization() {
