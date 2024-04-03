@@ -413,7 +413,7 @@ private extension CloudStorageManger {
     } else {
       finalBaseName = baseName + "_1"
     }
-    let deviceName = "\(addDeviceName ? UIDevice.current.name : "")"
+    let deviceName = addDeviceName ? "_\(UIDevice.current.name)" : ""
     let newFileName = finalBaseName + deviceName + "." + fileExtension
     let newFileUrl = fileUrl.deletingLastPathComponent().appendingPathComponent(newFileName)
 
