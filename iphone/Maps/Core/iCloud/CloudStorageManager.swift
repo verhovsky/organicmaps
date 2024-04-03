@@ -337,7 +337,7 @@ private extension CloudStorageManger {
 
     let targetCloudFileCopyUrl = Self.generateNewFileUrl(for: cloudMetadataItem.fileUrl)
     var coordinationError: NSError?
-    fileCoordinator.coordinate(writingItemAt: cloudMetadataItem.fileUrl, 
+    fileCoordinator.coordinate(writingItemAt: currentVersion.url,
                                options: [],
                                writingItemAt: targetCloudFileCopyUrl,
                                options: .forReplacing,
