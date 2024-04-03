@@ -2978,6 +2978,17 @@
 			path = Location;
 			sourceTree = "<group>";
 		};
+		ED7E8FD92BBDB105001E4BB3 /* CloudSynchronizationTests */ = {
+			isa = PBXGroup;
+			children = (
+				EDB1ED812BAC625E0062976A /* MetadataItemStubs.swift */,
+				EDB1ED6C2BAB17FB0062976A /* SynchronizationStateManagerTests.swift */,
+				ED7E8FD32BBDA1B0001E4BB3 /* DefaultLocalDirectoryMonitorTests.swift */,
+				ED7E8FD72BBDB0BF001E4BB3 /* MockLocalDirectoryMonitorDelegate.swift */,
+			);
+			path = CloudSynchronizationTests;
+			sourceTree = "<group>";
+		};
 		ED94C16D2BA4A1F000DAF811 /* Recovered References */ = {
 			isa = PBXGroup;
 			children = (
@@ -3009,10 +3020,7 @@
 		EDB1ED6B2BAB17FB0062976A /* OMapsTests */ = {
 			isa = PBXGroup;
 			children = (
-				EDB1ED812BAC625E0062976A /* MetadataItemStubs.swift */,
-				EDB1ED6C2BAB17FB0062976A /* SynchronizationStateManagerTests.swift */,
-				ED7E8FD32BBDA1B0001E4BB3 /* DefaultLocalDirectoryMonitorTests.swift */,
-				ED7E8FD72BBDB0BF001E4BB3 /* MockLocalDirectoryMonitorDelegate.swift */,
+				ED7E8FD92BBDB105001E4BB3 /* CloudSynchronizationTests */,
 			);
 			path = OMapsTests;
 			sourceTree = "<group>";
