@@ -14,9 +14,89 @@ final class SynchronizationStateManagerTests: XCTestCase {
     syncStateManager = nil
     outgoingEvents.removeAll()
   }
+  // MARK: - Test didFinishGathering without errors and on initial synchronization
+  func testInitialSynchronization() {
+    syncStateManager = DefaultSynchronizationStateManager(isInitialSynchronization: true)
 
-  // MARK: - Test didFinishGathering without errors
+    let localItem1 = LocalMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(1))
+    let localItem2 = LocalMetadataItem.stub(fileName: "file2", lastModificationDate: TimeInterval(3)) // Local only item
 
+    let cloudItem1 = CloudMetadataItem.stub(fileName: "file1", lastModificationDate: TimeInterval(2), isInTrash: false) // Conflicting item
+    let cloudItem3 = CloudMetadataItem.stub(fileName: "file3", lastModificationDate: TimeInterval(4), isInTrash: false) // Cloud only item
+
+    let localItems: LocalContents = [localItem1, localItem2]
+    let cloudItems: CloudContents = [cloudItem1, cloudItem3]
+
+    outgoingEvents.append(contentsOf: syncStateManager.resolveEvent(.didFinishGatheringLocalContents(localItems)))
+    outgoingEvents.append(contentsOf: syncStateManager.resolveEvent(.didFinishGatheringCloudContents(cloudItems)))
+
+    XCTAssertTrue(outgoingEvents.contains { event in
+      if case .resolveInitialSynchronizationConflict(let item) = event, item == localItem1 {
+        return true
+      }
+      return false
+    }, "Expected to resolve initial synchronization conflict for localItem1")
+
+    XCTAssertTrue(outgoingEvents.contains { event in
+      if case .createLocalItem(let item) = event, item == cloudItem3 {
+        return true
+      }
+      return false
+    }, "Expected to create local item for cloudItem3")
+
+    XCTAssertTrue(outgoingEvents.contains { event in
+      if case .createCloudItem(let item) = event, item == localItem2 {
+        return true
+      }
+      return false
+    }, "Expected to create cloud item for localItem2")
+
+    XCTAssertTrue(outgoingEvents.contains { event in
+      if case .didFinishInitialSynchronization = event {
+        return true
+      }
+      return false
+    }, "Expected to finish initial synchronization")
+  }
+
+  func testInitialSynchronizationWithNewerCloudItem() {
+    syncStateManager = DefaultSynchronizationStateManager(isInitialSynchronization: true)
+
+    let localItem = LocalMetadataItem.stub(fileName: "file", lastModificationDate: TimeInterval(1))
+    let cloudItem = CloudMetadataItem.stub(fileName: "file", lastModificationDate: TimeInterval(2), isInTrash: false)
+
+    outgoingEvents.append(contentsOf: syncStateManager.resolveEvent(.didFinishGatheringLocalContents([localItem])))
+    outgoingEvents.append(contentsOf: syncStateManager.resolveEvent(.didFinishGatheringCloudContents([cloudItem])))
+
+    XCTAssertTrue(outgoingEvents.contains { if case .resolveInitialSynchronizationConflict(_) = $0 { return true } else { return false } }, "Expected conflict resolution for a newer cloud item")
+  }
+
+  func testInitialSynchronizationWithNewerLocalItem() {
+    syncStateManager = DefaultSynchronizationStateManager(isInitialSynchronization: true)
+
+    let localItem = LocalMetadataItem.stub(fileName: "file", lastModificationDate: TimeInterval(2))
+    let cloudItem = CloudMetadataItem.stub(fileName: "file", lastModificationDate: TimeInterval(1), isInTrash: false)
+
+    outgoingEvents.append(contentsOf: syncStateManager.resolveEvent(.didFinishGatheringLocalContents([localItem])))
+    outgoingEvents.append(contentsOf: syncStateManager.resolveEvent(.didFinishGatheringCloudContents([cloudItem])))
+
+    XCTAssertTrue(outgoingEvents.contains { if case .resolveInitialSynchronizationConflict(_) = $0 { return true } else { return false } }, "Expected conflict resolution for a newer local item")
+  }
+
+  func testInitialSynchronizationWithNonConflictingItems() {
+    syncStateManager = DefaultSynchronizationStateManager(isInitialSynchronization: true)
+
+    let localItem = LocalMetadataItem.stub(fileName: "localFile", lastModificationDate: TimeInterval(1))
+    let cloudItem = CloudMetadataItem.stub(fileName: "cloudFile", lastModificationDate: TimeInterval(2), isInTrash: false)
+
+    outgoingEvents.append(contentsOf: syncStateManager.resolveEvent(.didFinishGatheringLocalContents([localItem])))
+    outgoingEvents.append(contentsOf: syncStateManager.resolveEvent(.didFinishGatheringCloudContents([cloudItem])))
+
+    XCTAssertTrue(outgoingEvents.contains { if case .createLocalItem(_) = $0 { return true } else { return false } }, "Expected creation of local item for cloudFile")
+    XCTAssertTrue(outgoingEvents.contains { if case .createCloudItem(_) = $0 { return true } else { return false } }, "Expected creation of cloud item for localFile")
+  }
+
+  // MARK: - Test didFinishGathering without errors and after initial synchronization
   func testDidFinishGatheringWhenCloudAndLocalIsEmpty() {
     let localItems: LocalContents = []
     let cloudItems: CloudContents = []
@@ -433,7 +513,7 @@ final class SynchronizationStateManagerTests: XCTestCase {
 
     outgoingEvents = syncStateManager.resolveEvent(.didUpdateLocalContents(newLocalItems))
     XCTAssertEqual(outgoingEvents.count, 1)
-    
+
     outgoingEvents.forEach { event in
       switch event {
       case .createCloudItem(let item):
