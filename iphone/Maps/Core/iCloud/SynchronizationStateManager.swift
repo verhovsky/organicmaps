@@ -7,6 +7,7 @@ protocol SynchronizationStateManager {
   var currentCloudContents: CloudContents { get }
   var localContentsGatheringIsFinished: Bool { get }
   var cloudContentGatheringIsFinished: Bool { get }
+  var isInitialSynchronization: Bool { get set }
 
   @discardableResult
   func resolveEvent(_ event: IncomingEvent) -> [OutgoingEvent]
@@ -34,11 +35,13 @@ enum OutgoingEvent {
   case updateLocalItem(CloudMetadataItem)
   case removeLocalItem(CloudMetadataItem)
   case startDownloading(CloudMetadataItem)
-  case resolveVersionsConflict(CloudMetadataItem)
   case createCloudItem(LocalMetadataItem)
   case updateCloudItem(LocalMetadataItem)
   case removeCloudItem(LocalMetadataItem)
   case didReceiveError(SynchronizationError)
+  case resolveVersionsConflict(CloudMetadataItem)
+  case resolveInitialSynchronizationConflict(LocalMetadataItem)
+  case didFinishInitialSynchronization
 }
 
 final class DefaultSynchronizationStateManager: SynchronizationStateManager {
@@ -47,6 +50,11 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
   private(set) var currentCloudContents: CloudContents = []
   private(set) var localContentsGatheringIsFinished = false
   private(set) var cloudContentGatheringIsFinished = false
+  var isInitialSynchronization: Bool
+
+  init(isInitialSynchronization: Bool) {
+    self.isInitialSynchronization = isInitialSynchronization
+  }
 
   @discardableResult
   func resolveEvent(_ event: IncomingEvent) -> [OutgoingEvent] {
@@ -83,7 +91,7 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
     let localContentIsEmpty = BookmarksManager.shared().sortedUserCategories().first(where: { BookmarksManager.shared().category(withId: $0.categoryId).bookmarksCount != 0}) == nil
 
     // TODO: handle 'initial' case fro devices that already have files but updated only now
-    let outgoingEvents: [OutgoingEvent]
+    var outgoingEvents: [OutgoingEvent] = []
     switch (localContentIsEmpty, cloudContents.isEmpty) {
     case (true, true):
       outgoingEvents = []
@@ -92,7 +100,16 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
     case (false, true):
       outgoingEvents = localContents.map { .createCloudItem($0) }
     case (false, false):
-      outgoingEvents = resolveDidUpdateCloudContents(cloudContents) + resolveDidUpdateLocalContents(localContents)
+      if isInitialSynchronization {
+        outgoingEvents.append(contentsOf: resolveInitialSynchronizationConflicts(localContents: localContents, cloudContents: cloudContents))
+        outgoingEvents.append(contentsOf: resolveDidUpdateCloudContents(cloudContents))
+        outgoingEvents.append(contentsOf: resolveDidUpdateLocalContents(localContents))
+        outgoingEvents.append(.didFinishInitialSynchronization)
+        isInitialSynchronization = false
+      } else {
+        outgoingEvents.append(contentsOf: resolveDidUpdateCloudContents(cloudContents))
+        outgoingEvents.append(contentsOf: resolveDidUpdateLocalContents(localContents))
+      }
     }
     return outgoingEvents
   }
@@ -100,7 +117,7 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
   private func resolveDidUpdateLocalContents(_ localContents: LocalContents) -> [OutgoingEvent] {
     let itemsToRemoveFromCloudContainer = Self.getItemsToRemoveFromCloudContainer(currentLocalContents: currentLocalContents, newLocalContents: localContents)
     let itemsToCreateInCloudContainer = Self.getItemsToCreateInCloudContainer(cloudContents: currentCloudContents, localContents: localContents)
-    let itemsToUpdateInCloudContainer = Self.getItemsToUpdateInCloudContainer(cloudContents: currentCloudContents, localContents: localContents)
+    let itemsToUpdateInCloudContainer = Self.getItemsToUpdateInCloudContainer(cloudContents: currentCloudContents, localContents: localContents, isInitialSynchronization: isInitialSynchronization)
 
     var outgoingEvents = [OutgoingEvent]()
     itemsToRemoveFromCloudContainer.forEach { outgoingEvents.append(.removeCloudItem($0)) }
@@ -129,7 +146,7 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
 
     let itemsToRemoveFromLocalContainer = Self.getItemsToRemoveFromLocalContainer(cloudContents: cloudContents, localContents: currentLocalContents)
     let itemsToCreateInLocalContainer = Self.getItemsToCreateInLocalContainer(cloudContents: cloudContents, localContents: currentLocalContents)
-    let itemsToUpdateInLocalContainer = Self.getItemsToUpdateInLocalContainer(cloudContents: cloudContents, localContents: currentLocalContents)
+    let itemsToUpdateInLocalContainer = Self.getItemsToUpdateInLocalContainer(cloudContents: cloudContents, localContents: currentLocalContents, isInitialSynchronization: isInitialSynchronization)
 
     // 3. Handle not downloaded items
     itemsToCreateInLocalContainer.notDownloaded.forEach { outgoingEvents.append(.startDownloading($0)) }
@@ -142,6 +159,14 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
 
     currentCloudContents = cloudContents
     return outgoingEvents
+  }
+
+  private func resolveInitialSynchronizationConflicts(localContents: LocalContents, cloudContents: CloudContents) -> [OutgoingEvent] {
+    let itemsInInitialConflict = localContents.filter { cloudContents.containsByName($0) }
+    guard !itemsInInitialConflict.isEmpty else {
+      return []
+    }
+    return itemsInInitialConflict.map { .resolveInitialSynchronizationConflict($0) }
   }
 
   private static func getItemsToRemoveFromCloudContainer(currentLocalContents: LocalContents, newLocalContents: LocalContents) -> LocalContents {
@@ -161,8 +186,10 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
     }
   }
 
-  private static func getItemsToUpdateInCloudContainer(cloudContents: CloudContents, localContents: LocalContents) -> LocalContents {
-    localContents.reduce(into: LocalContents()) { result, localItem in
+  private static func getItemsToUpdateInCloudContainer(cloudContents: CloudContents, localContents: LocalContents, isInitialSynchronization: Bool) -> LocalContents {
+    guard !isInitialSynchronization else { return [] }
+    // Due to the initial sync all conflicted local items will be duplicated with different name and replaced by the cloud items to avoid a data loss.
+    return localContents.reduce(into: LocalContents()) { result, localItem in
       if let cloudItem = cloudContents.notTrashed.firstByName(localItem),
          localItem.lastModificationDate > cloudItem.lastModificationDate {
         result.append(localItem)
@@ -199,11 +226,15 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
     cloudContents.notTrashed.withUnresolvedConflicts(false).filter { !localContents.containsByName($0) }
   }
 
-  private static func getItemsToUpdateInLocalContainer(cloudContents: CloudContents, localContents: LocalContents) -> CloudContents {
+  private static func getItemsToUpdateInLocalContainer(cloudContents: CloudContents, localContents: LocalContents, isInitialSynchronization: Bool) -> CloudContents {
     cloudContents.notTrashed.withUnresolvedConflicts(false).reduce(into: CloudContents()) { result, cloudItem in
-      if let localItemValue = localContents.firstByName(cloudItem),
-         cloudItem.lastModificationDate > localItemValue.lastModificationDate {
-        result.append(cloudItem)
+      if let localItemValue = localContents.firstByName(cloudItem) {
+        // Due to the initial sync all conflicted local items will be duplicated with different name and replaced by the cloud items to avoid a data loss.
+        if isInitialSynchronization {
+          result.append(cloudItem)
+        } else if cloudItem.lastModificationDate > localItemValue.lastModificationDate {
+          result.append(cloudItem)
+        }
       }
     }
   }

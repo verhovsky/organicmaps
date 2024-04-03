@@ -6,6 +6,7 @@ enum VoidResult {
 typealias VoidResultCompletionHandler = (VoidResult) -> Void
 
 let kTrashDirectoryName = ".Trash"
+let kUDDidFinishInitialCloudSynchronization = "kUDDidFinishInitialCloudSynchronization"
 
 @objc @objcMembers final class CloudStorageManger: NSObject {
 
@@ -25,7 +26,7 @@ let kTrashDirectoryName = ".Trash"
   // MARK: - Initialization
   init(cloudDirectoryMonitor: iCloudDirectoryMonitor = iCloudDirectoryMonitor.default,
        localDirectoryMonitor: DefaultLocalDirectoryMonitor = DefaultLocalDirectoryMonitor.default,
-       synchronizationStateManager: SynchronizationStateManager = DefaultSynchronizationStateManager()) {
+       synchronizationStateManager: SynchronizationStateManager = DefaultSynchronizationStateManager(isInitialSynchronization: !UserDefaults.standard.bool(forKey: kUDDidFinishInitialCloudSynchronization))) {
     self.cloudDirectoryMonitor = cloudDirectoryMonitor
     self.localDirectoryMonitor = localDirectoryMonitor
     self.synchronizationStateManager = synchronizationStateManager
@@ -162,10 +163,12 @@ private extension CloudStorageManger {
         case .updateLocalItem(let cloudMetadataItem): self.writeToLocalContainer(cloudMetadataItem, completion: completionHandler)
         case .removeLocalItem(let cloudMetadataItem): self.removeFromTheLocalContainer(cloudMetadataItem, completion: completionHandler)
         case .startDownloading(let cloudMetadataItem): self.startDownloading(cloudMetadataItem, completion: completionHandler)
-        case .resolveVersionsConflict(let cloudMetadataItem): self.resolveVersionsConflict(cloudMetadataItem, completion: completionHandler)
         case .createCloudItem(let localMetadataItem): self.writeToCloudContainer(localMetadataItem, completion: completionHandler)
         case .updateCloudItem(let localMetadataItem): self.writeToCloudContainer(localMetadataItem, completion: completionHandler)
         case .removeCloudItem(let localMetadataItem): self.removeFromCloudContainer(localMetadataItem, completion: completionHandler)
+        case .resolveVersionsConflict(let cloudMetadataItem): self.resolveVersionsConflict(cloudMetadataItem, completion: completionHandler)
+        case .resolveInitialSynchronizationConflict(let localMetadataItem): self.resolveInitialSynchronizationConflict(localMetadataItem, completion: completionHandler)
+        case .didFinishInitialSynchronization: UserDefaults.standard.set(true, forKey: kUDDidFinishInitialCloudSynchronization)
         case .didReceiveError(let error): self.handleError(error)
         }
       }
@@ -369,6 +372,17 @@ private extension CloudStorageManger {
     }
   }
 
+  func resolveInitialSynchronizationConflict(_ localMetadataItem: LocalMetadataItem, completion: VoidResultCompletionHandler) {
+    LOG(.debug, "Start resolving initial sync conflict for file \(localMetadataItem.fileName) by copying with a new name...")
+    do {
+      try FileManager.default.copyItem(at: localMetadataItem.fileUrl, to: Self.generateNewFileUrl(for: localMetadataItem.fileUrl, addDeviceName: true))
+      completion(.success)
+    } catch {
+      completion(.failure(error))
+    }
+    return
+  }
+
   // FIXME: Multiple calls of reload may cause issue on the bookmarks screen
   func reloadBookmarksOnTheMapIfNeeded() {
     if needsToReloadBookmarksOnTheMap {
@@ -381,7 +395,7 @@ private extension CloudStorageManger {
     }
   }
 
-  static func generateNewFileUrl(for fileUrl: URL) -> URL {
+  static func generateNewFileUrl(for fileUrl: URL, addDeviceName: Bool = false) -> URL {
     let baseName = fileUrl.deletingPathExtension().lastPathComponent
     let fileExtension = fileUrl.pathExtension
 
@@ -399,8 +413,8 @@ private extension CloudStorageManger {
     } else {
       finalBaseName = baseName + "_1"
     }
-
-    let newFileName = finalBaseName + "." + fileExtension
+    let deviceName = "\(addDeviceName ? UIDevice.current.name : "")"
+    let newFileName = finalBaseName + deviceName + "." + fileExtension
     let newFileUrl = fileUrl.deletingLastPathComponent().appendingPathComponent(newFileName)
 
     if FileManager.default.fileExists(atPath: newFileUrl.path) {

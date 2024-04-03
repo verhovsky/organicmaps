@@ -7,7 +7,7 @@ final class SynchronizationStateManagerTests: XCTestCase {
   var outgoingEvents: [OutgoingEvent] = []
 
   override func setUp() {
-    syncStateManager = DefaultSynchronizationStateManager()
+    syncStateManager = DefaultSynchronizationStateManager(isInitialSynchronization: false)
   }
 
   override func tearDown() {
