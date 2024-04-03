@@ -465,6 +465,7 @@
 		ED1263AB2B6F99F900AD99F3 /* UIView+AddSeparator.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED1263AA2B6F99F900AD99F3 /* UIView+AddSeparator.swift */; };
 		ED3EAC202B03C88100220A4A /* BottomTabBarButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED3EAC1F2B03C88100220A4A /* BottomTabBarButton.swift */; };
 		ED7E8FD42BBDA1B0001E4BB3 /* DefaultLocalDirectoryMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED7E8FD32BBDA1B0001E4BB3 /* DefaultLocalDirectoryMonitorTests.swift */; };
+		ED7E8FD82BBDB0BF001E4BB3 /* MockLocalDirectoryMonitorDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED7E8FD72BBDB0BF001E4BB3 /* MockLocalDirectoryMonitorDelegate.swift */; };
 		ED94C1762BA4A20300DAF811 /* iCloudDirectoryMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED94C16F2BA4A20300DAF811 /* iCloudDirectoryMonitor.swift */; };
 		ED94C1772BA4A20300DAF811 /* CloudStorageManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED94C1702BA4A20300DAF811 /* CloudStorageManager.swift */; };
 		ED94C1782BA4A20300DAF811 /* MetadataItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED94C1712BA4A20300DAF811 /* MetadataItem.swift */; };
@@ -1358,6 +1359,7 @@
 		ED48BBB817C2B1E2003E7E92 /* CircleView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CircleView.h; sourceTree = "<group>"; };
 		ED48BBB917C2B1E2003E7E92 /* CircleView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = CircleView.m; sourceTree = "<group>"; };
 		ED7E8FD32BBDA1B0001E4BB3 /* DefaultLocalDirectoryMonitorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultLocalDirectoryMonitorTests.swift; sourceTree = "<group>"; };
+		ED7E8FD72BBDB0BF001E4BB3 /* MockLocalDirectoryMonitorDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockLocalDirectoryMonitorDelegate.swift; sourceTree = "<group>"; };
 		ED94C16F2BA4A20300DAF811 /* iCloudDirectoryMonitor.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = iCloudDirectoryMonitor.swift; sourceTree = "<group>"; };
 		ED94C1702BA4A20300DAF811 /* CloudStorageManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CloudStorageManager.swift; sourceTree = "<group>"; };
 		ED94C1712BA4A20300DAF811 /* MetadataItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MetadataItem.swift; sourceTree = "<group>"; };
@@ -3010,6 +3012,7 @@
 				EDB1ED812BAC625E0062976A /* MetadataItemStubs.swift */,
 				EDB1ED6C2BAB17FB0062976A /* SynchronizationStateManagerTests.swift */,
 				ED7E8FD32BBDA1B0001E4BB3 /* DefaultLocalDirectoryMonitorTests.swift */,
+				ED7E8FD72BBDB0BF001E4BB3 /* MockLocalDirectoryMonitorDelegate.swift */,
 			);
 			path = OMapsTests;
 			sourceTree = "<group>";
@@ -4497,6 +4500,7 @@
 				EDB1ED6D2BAB17FB0062976A /* SynchronizationStateManagerTests.swift in Sources */,
 				EDB1ED822BAC625E0062976A /* MetadataItemStubs.swift in Sources */,
 				ED7E8FD42BBDA1B0001E4BB3 /* DefaultLocalDirectoryMonitorTests.swift in Sources */,
+				ED7E8FD82BBDB0BF001E4BB3 /* MockLocalDirectoryMonitorDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
