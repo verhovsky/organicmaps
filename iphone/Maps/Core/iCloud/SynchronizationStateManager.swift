@@ -79,11 +79,12 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
     currentCloudContents = cloudContents
     guard localContentsGatheringIsFinished, cloudContentGatheringIsFinished else { return [] }
     
-    // TODO: handle 'true empy' case
+    // TODO: This hardcoded check is a workaround for the case when the user has no categories at all (first install on the device). In the real there is one file without no bookmarks. But it should be marked as an 'empty' to start fetching the cloud content. Should be handled more accurate way.
+    let localContentIsEmpty = BookmarksManager.shared().sortedUserCategories().first(where: { BookmarksManager.shared().category(withId: $0.categoryId).bookmarksCount != 0}) == nil
 
-    // TODO: handel 'initial' case fro devices that already have files but uptedated only now
+    // TODO: handle 'initial' case fro devices that already have files but updated only now
     let outgoingEvents: [OutgoingEvent]
-    switch (localContents.isEmpty, cloudContents.isEmpty) {
+    switch (localContentIsEmpty, cloudContents.isEmpty) {
     case (true, true):
       outgoingEvents = []
     case (true, false):
