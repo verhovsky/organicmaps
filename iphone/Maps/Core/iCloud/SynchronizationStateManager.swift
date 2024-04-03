@@ -102,14 +102,13 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
     case (false, false):
       if isInitialSynchronization {
         outgoingEvents.append(contentsOf: resolveInitialSynchronizationConflicts(localContents: localContents, cloudContents: cloudContents))
-        outgoingEvents.append(contentsOf: resolveDidUpdateCloudContents(cloudContents))
-        outgoingEvents.append(contentsOf: resolveDidUpdateLocalContents(localContents))
-        outgoingEvents.append(.didFinishInitialSynchronization)
-        isInitialSynchronization = false
-      } else {
-        outgoingEvents.append(contentsOf: resolveDidUpdateCloudContents(cloudContents))
-        outgoingEvents.append(contentsOf: resolveDidUpdateLocalContents(localContents))
       }
+      outgoingEvents.append(contentsOf: resolveDidUpdateCloudContents(cloudContents))
+      outgoingEvents.append(contentsOf: resolveDidUpdateLocalContents(localContents))
+    }
+    if isInitialSynchronization {
+      outgoingEvents.append(.didFinishInitialSynchronization)
+      isInitialSynchronization = false
     }
     return outgoingEvents
   }
