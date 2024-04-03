@@ -131,3 +131,34 @@ extension LocalMetadataItem {
     cloudContainer.appendingPathComponent(fileName)
   }
 }
+
+extension Array where Element: MetadataItem {
+  func containsByName(_ item: any MetadataItem) -> Bool {
+    return contains(where: { $0.fileName == item.fileName })
+  }
+  func firstByName(_ item: any MetadataItem) -> Element? {
+    return first(where: { $0.fileName == item.fileName })
+  }
+}
+
+extension Array where Element == CloudMetadataItem {
+  var trashed: Self {
+    filter { $0.isRemoved }
+  }
+
+  var notTrashed: Self {
+    filter { !$0.isRemoved }
+  }
+
+  var downloaded: Self {
+    filter { $0.isDownloaded }
+  }
+
+  var notDownloaded: Self {
+    filter { !$0.isDownloaded }
+  }
+
+  func withUnresolvedConflicts(_ hasUnresolvedConflicts: Bool) -> Self {
+    filter { $0.hasUnresolvedConflicts == hasUnresolvedConflicts }
+  }
+}

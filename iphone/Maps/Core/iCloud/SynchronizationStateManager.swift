@@ -78,7 +78,10 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
     currentLocalContents = localContents
     currentCloudContents = cloudContents
     guard localContentsGatheringIsFinished, cloudContentGatheringIsFinished else { return [] }
+    
+    // TODO: handle 'true empy' case
 
+    // TODO: handel 'initial' case fro devices that already have files but uptedated only now
     let outgoingEvents: [OutgoingEvent]
     switch (localContents.isEmpty, cloudContents.isEmpty) {
     case (true, true):
@@ -114,11 +117,11 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
     let errors = Self.getItemsWithErrors(cloudContents)
     errors.forEach { outgoingEvents.append(.didReceiveError($0)) }
 
-    // TODO: Handle situation when file was removed from one storage and updated in another in offline
     // 2. Handle merge conflicts
     let itemsWithUnresolvedConflicts = Self.getItemsToResolveConflicts(cloudContents: cloudContents)
     itemsWithUnresolvedConflicts.forEach { outgoingEvents.append(.resolveVersionsConflict($0)) }
 
+    // Merge conflicts should be resolved at first.
     guard itemsWithUnresolvedConflicts.isEmpty else {
       return outgoingEvents
     }
@@ -209,40 +212,6 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
   }
 }
 
-// MARK: - MetadataItem Dictionary + Contains
-extension Array where Element: MetadataItem {
-  func containsByName(_ item: any MetadataItem) -> Bool {
-    return contains(where: { $0.fileName == item.fileName })
-  }
-  func firstByName(_ item: any MetadataItem) -> Element? {
-    return first(where: { $0.fileName == item.fileName })
-  }
-}
-
-// MARK: - CloudMetadataItem Dictionary + Trash, Down
-extension Array where Element == CloudMetadataItem {
-  var trashed: Self {
-    filter { $0.isRemoved }
-  }
-
-  var notTrashed: Self {
-    filter { !$0.isRemoved }
-  }
-
-  var downloaded: Self {
-    filter { $0.isDownloaded }
-  }
-
-  var notDownloaded: Self {
-    filter { !$0.isDownloaded }
-  }
-
-  func withUnresolvedConflicts(_ hasUnresolvedConflicts: Bool) -> Self {
-    filter { $0.hasUnresolvedConflicts == hasUnresolvedConflicts }
-  }
-}
-
-// MARK: - SyncronizationError + FromError
 private extension SynchronizationError {
   static func fromError(_ error: Error) -> SynchronizationError {
     let nsError = error as NSError
