@@ -30,11 +30,8 @@ final class iCloudDirectoryMonitor: NSObject, UbiquitousDirectoryMonitor {
   private var ubiquitousDocumentsDirectory: URL?
 
   // MARK: - Public properties
-  var isStarted: Bool {
-    LOG(.debug, "iCloudDirectoryMonitor isStarted \(metadataQuery.isStarted)")
-    return metadataQuery.isStarted
-  }
-  private(set) var isPaused: Bool = true { didSet { LOG(.debug, "iCloudDirectoryMonitor isPaused \(isPaused)") } }
+  var isStarted: Bool { return metadataQuery.isStarted }
+  private(set) var isPaused: Bool = true
   weak var delegate: UbiquitousDirectoryMonitorDelegate?
 
   init(cloudContainerIdentifier: String = iCloudDirectoryMonitor.sharedContainerIdentifier) {
@@ -121,7 +118,7 @@ private extension iCloudDirectoryMonitor {
     NotificationCenter.default.addObserver(self, selector: #selector(cloudAvailabilityChanged(_:)), name: .NSUbiquityIdentityDidChange, object: nil)
   }
 
-  // FIXME: - Actually this notification was never called. If user disable the iCloud for the curren app during the active state the app will be relaunched. Needs to investigate additional cases when this notification can be sent.
+  // TODO: - Actually this notification was never called. If user disable the iCloud for the current app during the active state the app will be relaunched. Needs to investigate additional cases when this notification can be sent.
   @objc func cloudAvailabilityChanged(_ notification: Notification) {
     LOG(.debug, "Cloud availability changed to : \(cloudIsAvailable())")
     cloudIsAvailable() ? startQuery() : stopQuery()

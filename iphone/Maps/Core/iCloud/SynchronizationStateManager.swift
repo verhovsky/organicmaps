@@ -46,6 +46,7 @@ enum OutgoingEvent {
 
 final class DefaultSynchronizationStateManager: SynchronizationStateManager {
 
+  // MARK: - Public properties
   private(set) var currentLocalContents: LocalContents = []
   private(set) var currentCloudContents: CloudContents = []
   private(set) var localContentsGatheringIsFinished = false
@@ -56,6 +57,7 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
     self.isInitialSynchronization = isInitialSynchronization
   }
 
+  // MARK: - Public methods
   @discardableResult
   func resolveEvent(_ event: IncomingEvent) -> [OutgoingEvent] {
     let outgoingEvents: [OutgoingEvent]
@@ -81,7 +83,7 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
     cloudContentGatheringIsFinished = false
   }
 
-  // MARK: - Private
+  // MARK: - Private methods
   private func resolveDidFinishGathering(localContents: LocalContents, cloudContents: CloudContents) -> [OutgoingEvent] {
     currentLocalContents = localContents
     currentCloudContents = cloudContents
@@ -90,7 +92,6 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
     // TODO: This hardcoded check is a workaround for the case when the user has no categories at all (first install on the device). In the real there is one file without no bookmarks. But it should be marked as an 'empty' to start fetching the cloud content. Should be handled more accurate way.
     let localContentIsEmpty = BookmarksManager.shared().sortedUserCategories().first(where: { BookmarksManager.shared().category(withId: $0.categoryId).bookmarksCount != 0}) == nil
 
-    // TODO: handle 'initial' case fro devices that already have files but updated only now
     var outgoingEvents: [OutgoingEvent] = []
     switch (localContentIsEmpty, cloudContents.isEmpty) {
     case (true, true):

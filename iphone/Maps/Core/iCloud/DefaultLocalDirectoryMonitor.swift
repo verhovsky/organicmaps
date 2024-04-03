@@ -45,11 +45,8 @@ final class DefaultLocalDirectoryMonitor: LocalDirectoryMonitor {
 
   // MARK: - Public properties
   let directory: URL
-  var isStarted: Bool {
-    if case .stopped = state { return false }
-    return true
-  }
-  private(set) var isPaused: Bool = true  { didSet { LOG(.debug, "DefaultLocalDirectoryMonitor isPaused \(isPaused)") } }
+  var isStarted: Bool { if case .stopped = state { false } else { true } }
+  private(set) var isPaused: Bool = true
   weak var delegate: Delegate?
 
   init(directory: URL, matching typeIdentifier: String, requestedResourceKeys: Set<URLResourceKey>) {
