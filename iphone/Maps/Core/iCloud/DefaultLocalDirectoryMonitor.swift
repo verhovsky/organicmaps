@@ -19,8 +19,8 @@ protocol LocalDirectoryMonitorDelegate : AnyObject {
   func didReceiveLocalMonitorError(_ error: Error)
 }
 
+let kKMLTypeIdentifier = "com.google.earth.kml" // only the .kml is supported
 private let kBookmarksDirectoryName = "bookmarks"
-private let kKMLTypeIdentifier = "com.google.earth.kml" // only the .kml is supported
 
 final class DefaultLocalDirectoryMonitor: LocalDirectoryMonitor {
 
@@ -46,12 +46,8 @@ final class DefaultLocalDirectoryMonitor: LocalDirectoryMonitor {
   // MARK: - Public properties
   let directory: URL
   var isStarted: Bool {
-    if case .stopped = state {
-      LOG(.debug, "DefaultLocalDirectoryMonitor isStarted \(true)")
-      return true
-    }
-    LOG(.debug, "DefaultLocalDirectoryMonitor isStarted \(false)")
-    return false
+    if case .stopped = state { return false }
+    return true
   }
   private(set) var isPaused: Bool = true  { didSet { LOG(.debug, "DefaultLocalDirectoryMonitor isPaused \(isPaused)") } }
   weak var delegate: Delegate?
@@ -67,25 +63,18 @@ final class DefaultLocalDirectoryMonitor: LocalDirectoryMonitor {
   func start(completion: VoidResultCompletionHandler? = nil) {
     guard case .stopped = state else { return }
 
-    if let source {
-      source.resume()
-      state = .started(dirSource: source)
-      return
+    let nowTimer = Timer.scheduledTimer(withTimeInterval: .zero, repeats: false) { [weak self] _ in
+      self?.debounceTimerDidFire()
     }
-
     do {
       let directorySource = try DefaultLocalDirectoryMonitor.source(for: directory)
       directorySource.setEventHandler { [weak self] in
         self?.queueDidFire()
       }
-      directorySource.resume()
       source = directorySource
-
-      let nowTimer = Timer.scheduledTimer(withTimeInterval: .zero, repeats: false) { [weak self] _ in
-        self?.debounceTimerDidFire()
-      }
-
       state = .debounce(dirSource: directorySource, timer: nowTimer)
+      isPaused = false
+      directorySource.resume()
       completion?(.success)
     } catch {
       stop()
@@ -97,6 +86,7 @@ final class DefaultLocalDirectoryMonitor: LocalDirectoryMonitor {
     pause()
     state = .stopped
     contents.removeAll()
+    source?.cancel()
   }
 
   func pause() {
@@ -118,12 +108,16 @@ final class DefaultLocalDirectoryMonitor: LocalDirectoryMonitor {
         throw error
       }
     }
-    let directoryFileDescrtiptor = open(directory.path, O_EVTONLY)
-    guard directoryFileDescrtiptor >= 0 else {
+    let directoryFileDescriptor = open(directory.path, O_EVTONLY)
+    guard directoryFileDescriptor >= 0 else {
       let errorCode = errno
       throw NSError(domain: POSIXError.errorDomain, code: Int(errorCode), userInfo: nil)
     }
-    return DispatchSource.makeFileSystemObjectSource(fileDescriptor: directoryFileDescrtiptor, eventMask: [.write], queue: DispatchQueue.main)
+    let dispatchSource = DispatchSource.makeFileSystemObjectSource(fileDescriptor: directoryFileDescriptor, eventMask: [.write], queue: DispatchQueue.main)
+    dispatchSource.setCancelHandler {
+      close(directoryFileDescriptor)
+    }
+    return dispatchSource
   }
 
   private func queueDidFire() {
@@ -158,7 +152,7 @@ final class DefaultLocalDirectoryMonitor: LocalDirectoryMonitor {
   }
 
   private func debounceTimerDidFire() {
-    guard case .debounce(let dirSource, let timer) = state else { fatalError("LocalDirectoryMonitor is in invalid state: \(self.state)") }
+    guard case .debounce(let dirSource, let timer) = state else { fatalError() }
     timer.invalidate()
     state = .started(dirSource: dirSource)
 
