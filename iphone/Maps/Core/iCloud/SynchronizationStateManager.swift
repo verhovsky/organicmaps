@@ -1,6 +1,6 @@
 typealias MetadataItemName = String
-typealias LocalContents = Dictionary<MetadataItemName, LocalMetadataItem>
-typealias CloudContents = Dictionary<MetadataItemName, CloudMetadataItem>
+typealias LocalContents = [LocalMetadataItem]
+typealias CloudContents = [CloudMetadataItem]
 
 protocol SynchronizationStateManager {
   var currentLocalContents: LocalContents { get }
@@ -43,8 +43,8 @@ enum OutgoingEvent {
 
 final class DefaultSynchronizationStateManager: SynchronizationStateManager {
 
-  private(set) var currentLocalContents: LocalContents = [:]
-  private(set) var currentCloudContents: CloudContents = [:]
+  private(set) var currentLocalContents: LocalContents = []
+  private(set) var currentCloudContents: CloudContents = []
   private(set) var localContentsGatheringIsFinished = false
   private(set) var cloudContentGatheringIsFinished = false
 
@@ -84,9 +84,9 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
     case (true, true):
       outgoingEvents = []
     case (true, false):
-      outgoingEvents = cloudContents.notRemoved.map { .createLocalItem($0.value) }
+      outgoingEvents = cloudContents.notTrashed.map { .createLocalItem($0) }
     case (false, true):
-      outgoingEvents = localContents.map { .createCloudItem($0.value) }
+      outgoingEvents = localContents.map { .createCloudItem($0) }
     case (false, false):
       outgoingEvents = resolveDidUpdateCloudContents(cloudContents) + resolveDidUpdateLocalContents(localContents)
     }
@@ -99,9 +99,9 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
     let itemsToUpdateInCloudContainer = Self.getItemsToUpdateInCloudContainer(cloudContents: currentCloudContents, localContents: localContents)
 
     var outgoingEvents = [OutgoingEvent]()
-    itemsToRemoveFromCloudContainer.forEach { outgoingEvents.append(.removeCloudItem($0.value)) }
-    itemsToCreateInCloudContainer.forEach { outgoingEvents.append(.createCloudItem($0.value)) }
-    itemsToUpdateInCloudContainer.forEach { outgoingEvents.append(.updateCloudItem($0.value)) }
+    itemsToRemoveFromCloudContainer.forEach { outgoingEvents.append(.removeCloudItem($0)) }
+    itemsToCreateInCloudContainer.forEach { outgoingEvents.append(.createCloudItem($0)) }
+    itemsToUpdateInCloudContainer.forEach { outgoingEvents.append(.updateCloudItem($0)) }
 
     currentLocalContents = localContents
     return outgoingEvents
@@ -117,7 +117,7 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
     // TODO: Handle situation when file was removed from one storage and updated in another in offline
     // 2. Handle merge conflicts
     let itemsWithUnresolvedConflicts = Self.getItemsToResolveConflicts(cloudContents: cloudContents)
-    itemsWithUnresolvedConflicts.forEach { outgoingEvents.append(.resolveVersionsConflict($0.value)) }
+    itemsWithUnresolvedConflicts.forEach { outgoingEvents.append(.resolveVersionsConflict($0)) }
 
     guard itemsWithUnresolvedConflicts.isEmpty else {
       return outgoingEvents
@@ -128,41 +128,40 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
     let itemsToUpdateInLocalContainer = Self.getItemsToUpdateInLocalContainer(cloudContents: cloudContents, localContents: currentLocalContents)
 
     // 3. Handle not downloaded items
-    itemsToCreateInLocalContainer.notDownloaded.forEach { outgoingEvents.append(.startDownloading($0.value)) }
-    itemsToUpdateInLocalContainer.notDownloaded.forEach { outgoingEvents.append(.startDownloading($0.value)) }
+    itemsToCreateInLocalContainer.notDownloaded.forEach { outgoingEvents.append(.startDownloading($0)) }
+    itemsToUpdateInLocalContainer.notDownloaded.forEach { outgoingEvents.append(.startDownloading($0)) }
 
     // 4. Handle downloaded items
-    itemsToRemoveFromLocalContainer.forEach { outgoingEvents.append(.removeLocalItem($0.value)) }
-    itemsToCreateInLocalContainer.downloaded.forEach { outgoingEvents.append(.createLocalItem($0.value)) }
-    itemsToUpdateInLocalContainer.downloaded.forEach { outgoingEvents.append(.updateLocalItem($0.value)) }
+    itemsToRemoveFromLocalContainer.forEach { outgoingEvents.append(.removeLocalItem($0)) }
+    itemsToCreateInLocalContainer.downloaded.forEach { outgoingEvents.append(.createLocalItem($0)) }
+    itemsToUpdateInLocalContainer.downloaded.forEach { outgoingEvents.append(.updateLocalItem($0)) }
 
     currentCloudContents = cloudContents
     return outgoingEvents
   }
 
   private static func getItemsToRemoveFromCloudContainer(currentLocalContents: LocalContents, newLocalContents: LocalContents) -> LocalContents {
-    currentLocalContents.filter { !newLocalContents.contains($0.key) }
+    currentLocalContents.filter { !newLocalContents.containsByName($0) }
   }
 
   private static func getItemsToCreateInCloudContainer(cloudContents: CloudContents, localContents: LocalContents) -> LocalContents {
-    localContents.reduce(into: LocalContents()) { partialResult, localItem in
-      if let cloudItemValue = cloudContents[localItem.key] {
-        // Merge conflict: if cloud .trash contains item and it's last modification date is less than local item's last modification date than file should be recreated.
-        if cloudItemValue.isRemoved, cloudItemValue.lastModificationDate < localItem.value.lastModificationDate {
-          partialResult[localItem.key] = localItem.value
-        }
-      } else {
-        partialResult[localItem.key] = localItem.value
+    localContents.reduce(into: LocalContents()) { result, localItem in
+      if !cloudContents.containsByName(localItem) {
+        result.append(localItem)
+      } else if !cloudContents.notTrashed.containsByName(localItem),
+                let trashedCloudItem = cloudContents.trashed.firstByName(localItem),
+                trashedCloudItem.lastModificationDate < localItem.lastModificationDate {
+        // If Cloud .Trash contains item and it's last modification date is less than the local item's last modification date than file should be recreated.
+        result.append(localItem)
       }
     }
   }
 
   private static func getItemsToUpdateInCloudContainer(cloudContents: CloudContents, localContents: LocalContents) -> LocalContents {
     localContents.reduce(into: LocalContents()) { result, localItem in
-      if let cloudItemValue = cloudContents[localItem.key],
-         !cloudItemValue.isRemoved,
-         localItem.value.lastModificationDate > cloudItemValue.lastModificationDate {
-        result[localItem.key] = localItem.value
+      if let cloudItem = cloudContents.notTrashed.firstByName(localItem),
+         localItem.lastModificationDate > cloudItem.lastModificationDate {
+        result.append(localItem)
       }
     }
   }
@@ -170,79 +169,76 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
 
   private static func getItemsWithErrors(_ cloudContents: CloudContents) -> [SynchronizationError] {
      cloudContents.reduce(into: [SynchronizationError](), { partialResult, cloudItem in
-      if let downloadingError = cloudItem.value.downloadingError {
+      if let downloadingError = cloudItem.downloadingError {
         partialResult.append(SynchronizationError.fromError(downloadingError))
       }
-      if let uploadingError = cloudItem.value.uploadingError {
+      if let uploadingError = cloudItem.uploadingError {
         partialResult.append(SynchronizationError.fromError(uploadingError))
       }
     })
   }
 
   private static func getItemsToRemoveFromLocalContainer(cloudContents: CloudContents, localContents: LocalContents) -> CloudContents {
-    cloudContents.removed.reduce(into: CloudContents()) { result, cloudItem in
-      if let localItemValue = localContents[cloudItem.key],
-         cloudItem.value.lastModificationDate >= localItemValue.lastModificationDate {
-        result[cloudItem.key] = cloudItem.value
+    cloudContents.trashed.reduce(into: CloudContents()) { result, cloudItem in
+      // Items shouldn't be removed if newer version of the item isn't in the trash.
+      if let notTrashedCloudItem = cloudContents.notTrashed.firstByName(cloudItem), notTrashedCloudItem.lastModificationDate > cloudItem.lastModificationDate {
+        return
+      }
+      if let localItemValue = localContents.firstByName(cloudItem),
+         cloudItem.lastModificationDate >= localItemValue.lastModificationDate {
+        result.append(cloudItem)
       }
     }
   }
 
   private static func getItemsToCreateInLocalContainer(cloudContents: CloudContents, localContents: LocalContents) -> CloudContents {
-    cloudContents.notRemoved.withUnresolvedConflicts(false).filter { !localContents.contains($0.key) }
+    cloudContents.notTrashed.withUnresolvedConflicts(false).filter { !localContents.containsByName($0) }
   }
 
   private static func getItemsToUpdateInLocalContainer(cloudContents: CloudContents, localContents: LocalContents) -> CloudContents {
-    cloudContents.notRemoved.withUnresolvedConflicts(false).reduce(into: CloudContents()) { result, cloudItem in
-      if let localItemValue = localContents[cloudItem.key],
-         cloudItem.value.lastModificationDate > localItemValue.lastModificationDate {
-        result[cloudItem.key] = cloudItem.value
+    cloudContents.notTrashed.withUnresolvedConflicts(false).reduce(into: CloudContents()) { result, cloudItem in
+      if let localItemValue = localContents.firstByName(cloudItem),
+         cloudItem.lastModificationDate > localItemValue.lastModificationDate {
+        result.append(cloudItem)
       }
     }
   }
 
   private static func getItemsToResolveConflicts(cloudContents: CloudContents) -> CloudContents {
-    cloudContents.notRemoved.withUnresolvedConflicts(true)
+    cloudContents.notTrashed.withUnresolvedConflicts(true)
   }
 }
 
 // MARK: - MetadataItem Dictionary + Contains
-extension Dictionary where Key == MetadataItemName, Value: MetadataItem {
-  func contains(_ item: Key) -> Bool {
-    return keys.contains(item)
+extension Array where Element: MetadataItem {
+  func containsByName(_ item: any MetadataItem) -> Bool {
+    return contains(where: { $0.fileName == item.fileName })
   }
-
-  mutating func add(_ item: Value) {
-    self[item.fileName] = item
-  }
-
-  init(_ items: [Value]) {
-    self.init(items.map { ($0.fileName, $0) }) { (first, last) in
-      first.lastModificationDate > last.lastModificationDate ? first : last
-    }
+  func firstByName(_ item: any MetadataItem) -> Element? {
+    return first(where: { $0.fileName == item.fileName })
   }
 }
 
 // MARK: - CloudMetadataItem Dictionary + Trash, Down
-private extension Dictionary where Key == MetadataItemName, Value == CloudMetadataItem {
-  var removed: Self {
-    filter { $0.value.isRemoved }
+extension Array where Element == CloudMetadataItem {
+  var trashed: Self {
+    filter { $0.isRemoved }
   }
 
-  var notRemoved: Self {
-    filter { !$0.value.isRemoved }
+  var notTrashed: Self {
+    filter { !$0.isRemoved }
   }
 
   var downloaded: Self {
-    filter { $0.value.isDownloaded }
+    filter { $0.isDownloaded }
   }
 
   var notDownloaded: Self {
-    filter { !$0.value.isDownloaded }
+    filter { !$0.isDownloaded }
   }
 
   func withUnresolvedConflicts(_ hasUnresolvedConflicts: Bool) -> Self {
-    filter { $0.value.hasUnresolvedConflicts == hasUnresolvedConflicts }
+    filter { $0.hasUnresolvedConflicts == hasUnresolvedConflicts }
   }
 }
 

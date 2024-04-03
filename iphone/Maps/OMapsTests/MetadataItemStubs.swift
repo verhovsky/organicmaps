@@ -27,7 +27,7 @@ extension CloudMetadataItem {
                                  isDownloaded: isDownloaded,
                                  creationDate: Date().timeIntervalSince1970,
                                  lastModificationDate: lastModificationDate,
-                                 isInTrash: isInTrash,
+                                 isRemoved: isInTrash,
                                  downloadingError: nil,
                                  uploadingError: nil,
                                  hasUnresolvedConflicts: hasUnresolvedConflicts)
