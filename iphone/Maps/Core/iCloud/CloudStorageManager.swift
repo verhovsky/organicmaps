@@ -20,6 +20,7 @@ let kUDDidFinishInitialCloudSynchronization = "kUDDidFinishInitialCloudSynchroni
   private var backgroundTaskIdentifier: UIBackgroundTaskIdentifier = .invalid
   private var localDirectoryUrl: URL { localDirectoryMonitor.directory }
   private var needsToReloadBookmarksOnTheMap = false
+  private var semaphore: DispatchSemaphore?
 
   static let shared = CloudStorageManger()
 
@@ -81,6 +82,7 @@ private extension CloudStorageManger {
             self.processError(error)
           case .success:
             LOG(.debug, "Start synchronization")
+            self.addToBookmarksManagerObserverList()
             break
           }
         }
@@ -92,29 +94,28 @@ private extension CloudStorageManger {
     localDirectoryMonitor.stop()
     cloudDirectoryMonitor.stop()
     synchronizationStateManager.resetState()
+    removeFromBookmarksManagerObserverList()
   }
 
   func pauseSynchronization() {
+    removeFromBookmarksManagerObserverList()
     localDirectoryMonitor.pause()
     cloudDirectoryMonitor.pause()
   }
 
   func resumeSynchronization() {
+    addToBookmarksManagerObserverList()
     localDirectoryMonitor.resume()
     cloudDirectoryMonitor.resume()
   }
 
-  // MARK: - Setup BookmarksManage observing
+  // MARK: - Setup BookmarksManager observing
   func addToBookmarksManagerObserverList() {
     bookmarksManager.add(self)
   }
 
   func removeFromBookmarksManagerObserverList() {
     bookmarksManager.remove(self)
-  }
-
-  func setBookmarksManagerNotificationsEnabled(_ enabled: Bool) {
-    bookmarksManager.setNotificationsEnabled(enabled)
   }
 
   func areBookmarksManagerNotificationsEnabled() -> Bool {
@@ -218,6 +219,25 @@ private extension CloudStorageManger {
       } else {
         // TODO: Handle regular errors
       }
+    }
+  }
+
+  // FIXME: Multiple calls of reload may cause issue on the bookmarks screen
+  func reloadBookmarksOnTheMapIfNeeded() {
+    if needsToReloadBookmarksOnTheMap {
+      LOG(.debug, "[Bookmarks reload] Start reloadBookmarksOnTheMapIfNeeded...")
+      needsToReloadBookmarksOnTheMap = false
+      semaphore = DispatchSemaphore(value: 0)
+      DispatchQueue.main.async {
+        // TODO: Needs to implement mechanism to reload only current categories, but not all
+        // TODO: Lock read/write access to the bookmarksManager
+        LOG(.debug, "[Bookmarks reload] bookmarksManager.loadBookmarks()...")
+        self.bookmarksManager.loadBookmarks()
+      }
+      LOG(.debug, "[Bookmarks reload] waiting for signal...")
+      semaphore?.wait()
+      semaphore = nil
+      LOG(.debug, "[Bookmarks reload] Finish reloadBookmarksOnTheMapIfNeeded...")
     }
   }
 
@@ -404,18 +424,6 @@ private extension CloudStorageManger {
     return
   }
 
-  // FIXME: Multiple calls of reload may cause issue on the bookmarks screen
-  func reloadBookmarksOnTheMapIfNeeded() {
-    if needsToReloadBookmarksOnTheMap {
-      needsToReloadBookmarksOnTheMap = false
-      DispatchQueue.main.async {
-        // TODO: Needs to implement mechanism to reload only current categories, but not all
-        // TODO: Lock read/write access to the bookmarksManager
-        self.bookmarksManager.loadBookmarks()
-      }
-    }
-  }
-
   static func generateNewFileUrl(for fileUrl: URL, addDeviceName: Bool = false) -> URL {
     let baseName = fileUrl.deletingPathExtension().lastPathComponent
     let fileExtension = fileUrl.pathExtension
@@ -443,6 +451,14 @@ private extension CloudStorageManger {
     } else {
       return newFileUrl
     }
+  }
+}
+
+// MARK: - BookmarksObserver
+extension CloudStorageManger: BookmarksObserver {
+  func onBookmarksLoadFinished() {
+    LOG(.debug, "[Bookmarks reload] onBookmarksLoadFinished did fire")
+    semaphore?.signal()
   }
 }
 
