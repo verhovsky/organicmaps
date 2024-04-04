@@ -89,11 +89,8 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
     currentCloudContents = cloudContents
     guard localContentsGatheringIsFinished, cloudContentGatheringIsFinished else { return [] }
     
-    // TODO: This hardcoded check is a workaround for the case when the user has no categories at all (first install on the device). In the real there is one file without no bookmarks. But it should be marked as an 'empty' to start fetching the cloud content. Should be handled more accurate way.
-    let localContentIsEmpty = BookmarksManager.shared().sortedUserCategories().first(where: { BookmarksManager.shared().category(withId: $0.categoryId).bookmarksCount != 0}) == nil
-
-    var outgoingEvents: [OutgoingEvent] = []
-    switch (localContentIsEmpty, cloudContents.isEmpty) {
+    var outgoingEvents: [OutgoingEvent]
+    switch (localContents.isEmpty, cloudContents.isEmpty) {
     case (true, true):
       outgoingEvents = []
     case (true, false):
@@ -101,11 +98,13 @@ final class DefaultSynchronizationStateManager: SynchronizationStateManager {
     case (false, true):
       outgoingEvents = localContents.map { .createCloudItem($0) }
     case (false, false):
+      var events = [OutgoingEvent]()
       if isInitialSynchronization {
-        outgoingEvents.append(contentsOf: resolveInitialSynchronizationConflicts(localContents: localContents, cloudContents: cloudContents))
+        events.append(contentsOf: resolveInitialSynchronizationConflicts(localContents: localContents, cloudContents: cloudContents))
       }
-      outgoingEvents.append(contentsOf: resolveDidUpdateCloudContents(cloudContents))
-      outgoingEvents.append(contentsOf: resolveDidUpdateLocalContents(localContents))
+      events.append(contentsOf: resolveDidUpdateCloudContents(cloudContents))
+      events.append(contentsOf: resolveDidUpdateLocalContents(localContents))
+      outgoingEvents = events
     }
     if isInitialSynchronization {
       outgoingEvents.append(.didFinishInitialSynchronization)

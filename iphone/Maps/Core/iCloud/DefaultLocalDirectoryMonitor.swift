@@ -164,6 +164,8 @@ final class DefaultLocalDirectoryMonitor: LocalDirectoryMonitor {
       }
     })
 
+    // TODO: This hardcoded check is a workaround for the case when the user has no categories at all (first install on the device). In the real there is one file without no bookmarks. But it should be marked as an 'empty' to start fetching the cloud content. Should be handled more accurate way. Also BookmarksManager.shared().sortedUserCategories() may not be initialized during the sync process beginning.
+//    let localContentIsEmpty = BookmarksManager.shared().sortedUserCategories().first(where: { BookmarksManager.shared().category(withId: $0.categoryId).bookmarksCount != 0}) == nil
     // When the contentMetadataItems is empty, it means that we are in the initial state.
     if contents.isEmpty {
       delegate?.didFinishGathering(contents: newContentMetadataItems)
