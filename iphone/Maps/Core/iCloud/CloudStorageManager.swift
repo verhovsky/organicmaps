@@ -162,6 +162,7 @@ private extension CloudStorageManger {
   func processEvents(_ events: [OutgoingEvent]) {
     events.forEach { [weak self] event in
       guard let self else { return }
+
       LOG(.debug, "Process event: \(event)")
       self.backgroundQueue.async {
         self.executeEvent(event)
@@ -169,6 +170,7 @@ private extension CloudStorageManger {
     }
 
     backgroundQueue.async {
+      self.reloadBookmarksOnTheMapIfNeeded()
       self.isSynchronizationInProcess = false
       self.cancelBackgroundExecution()
     }
@@ -195,7 +197,7 @@ private extension CloudStorageManger {
     case .failure(let error):
       processError(error)
     case .success:
-      reloadBookmarksOnTheMapIfNeeded()
+      break
     }
   }
 
@@ -222,22 +224,15 @@ private extension CloudStorageManger {
     }
   }
 
-  // FIXME: Multiple calls of reload may cause issue on the bookmarks screen
   func reloadBookmarksOnTheMapIfNeeded() {
     if needsToReloadBookmarksOnTheMap {
-      LOG(.debug, "[Bookmarks reload] Start reloadBookmarksOnTheMapIfNeeded...")
       needsToReloadBookmarksOnTheMap = false
       semaphore = DispatchSemaphore(value: 0)
       DispatchQueue.main.async {
-        // TODO: Needs to implement mechanism to reload only current categories, but not all
-        // TODO: Lock read/write access to the bookmarksManager
-        LOG(.debug, "[Bookmarks reload] bookmarksManager.loadBookmarks()...")
         self.bookmarksManager.loadBookmarks()
       }
-      LOG(.debug, "[Bookmarks reload] waiting for signal...")
       semaphore?.wait()
       semaphore = nil
-      LOG(.debug, "[Bookmarks reload] Finish reloadBookmarksOnTheMapIfNeeded...")
     }
   }
 
@@ -457,7 +452,6 @@ private extension CloudStorageManger {
 // MARK: - BookmarksObserver
 extension CloudStorageManger: BookmarksObserver {
   func onBookmarksLoadFinished() {
-    LOG(.debug, "[Bookmarks reload] onBookmarksLoadFinished did fire")
     semaphore?.signal()
   }
 }
