@@ -111,13 +111,11 @@
   if ([taskInfo.delegate
        respondsToSelector:@selector(URLSession:task:willPerformHTTPRedirection:newRequest:completionHandler:)])
   {
-    dispatch_async(dispatch_get_main_queue(), ^{
-      [taskInfo.delegate URLSession:session
-                                task:task
-          willPerformHTTPRedirection:response
-                          newRequest:newRequest
-                   completionHandler:completionHandler];
-    });
+    [taskInfo.delegate URLSession:session
+                             task:task
+       willPerformHTTPRedirection:response
+                       newRequest:newRequest
+                completionHandler:completionHandler];
   }
   else
   {
@@ -133,11 +131,7 @@
   [self removeTaskInfoForTask:task];
 
   if ([taskInfo.delegate respondsToSelector:@selector(URLSession:task:didCompleteWithError:)])
-  {
-    dispatch_async(dispatch_get_main_queue(), ^{
-      [taskInfo.delegate URLSession:session task:task didCompleteWithError:error];
-    });
-  }
+    [taskInfo.delegate URLSession:session task:task didCompleteWithError:error];
 }
 
 - (void)URLSession:(NSURLSession *)session
@@ -146,20 +140,10 @@
      completionHandler:(void (^)(NSURLSessionResponseDisposition disposition))completionHandler
 {
   DataTaskInfo * taskInfo = [self taskInfoForTask:dataTask];
-  if ([taskInfo.delegate
-          respondsToSelector:@selector(URLSession:dataTask:didReceiveResponse:completionHandler:)])
-  {
-    dispatch_async(dispatch_get_main_queue(), ^{
-      [taskInfo.delegate URLSession:session
-                           dataTask:dataTask
-                 didReceiveResponse:response
-                  completionHandler:completionHandler];
-    });
-  }
+  if ([taskInfo.delegate respondsToSelector:@selector(URLSession:dataTask:didReceiveResponse:completionHandler:)])
+    [taskInfo.delegate URLSession:session dataTask:dataTask didReceiveResponse:response completionHandler:completionHandler];
   else
-  {
     completionHandler(NSURLSessionResponseAllow);
-  }
 }
 
 - (void)URLSession:(NSURLSession *)session
